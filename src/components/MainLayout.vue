@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { Setting, Close } from '@element-plus/icons-vue';
 import { useSettingsStore } from '../stores';
 import { themeManager } from '../utils/themeManager';
 import VideoImport from './VideoImport.vue';
@@ -16,14 +15,6 @@ const settingsStore = useSettingsStore();
 // 当前激活的面板
 const activePanel = ref('recognition');
 
-// 设置侧边栏显示状态
-const showSettingsSidebar = ref(false);
-
-// 切换设置侧边栏
-const toggleSettingsSidebar = () => {
-  showSettingsSidebar.value = !showSettingsSidebar.value;
-};
-
 // 初始化设置
 onMounted(() => {
   settingsStore.initSettings();
@@ -35,15 +26,8 @@ onMounted(() => {
   <div class="main-layout">
     <!-- 顶部工具栏 -->
     <div class="app-header">
-      <!-- 设置按钮 -->
+      <!-- 预留空间用于未来功能 -->
       <div class="header-actions">
-        <el-button 
-          @click="toggleSettingsSidebar"
-          :type="showSettingsSidebar ? 'primary' : 'default'"
-          class="settings-btn"
-        >
-          <el-icon><Setting /></el-icon>
-        </el-button>
       </div>
     </div>
     
@@ -56,7 +40,7 @@ onMounted(() => {
       </div>
       
       <!-- 右侧面板 -->
-      <div class="right-panel" :class="{ 'with-sidebar': showSettingsSidebar }">
+      <div class="right-panel">
         <el-tabs v-model="activePanel" class="right-tabs">
           <el-tab-pane label="语音识别" name="recognition">
             <RecognitionPanel />
@@ -65,24 +49,11 @@ onMounted(() => {
           <el-tab-pane label="字幕编辑" name="subtitle">
             <SubtitleEditor />
           </el-tab-pane>
+          
+          <el-tab-pane label="设置" name="settings">
+            <SettingsPanel />
+          </el-tab-pane>
         </el-tabs>
-      </div>
-      
-      <!-- 设置侧边栏 -->
-      <div v-if="showSettingsSidebar" class="settings-sidebar">
-        <div class="sidebar-header">
-          <h3>设置</h3>
-          <el-button 
-            @click="toggleSettingsSidebar"
-            type="text"
-            class="close-btn"
-          >
-            <el-icon><Close /></el-icon>
-          </el-button>
-        </div>
-        <div class="sidebar-content">
-          <SettingsPanel />
-        </div>
       </div>
     </div>
     
@@ -104,8 +75,8 @@ onMounted(() => {
 }
 
 .app-header {
-  background: #2d3748;
-  color: #ffffff;
+  background: #ffffff;
+  color: #0fdc78;
   padding: 8px 16px;
   display: flex;
   justify-content: flex-end;
@@ -119,27 +90,7 @@ onMounted(() => {
   align-items: center;
 }
 
-.settings-btn {
-  background: transparent !important;
-  border: 2px solid #0fdc78 !important;
-  color: #0fdc78 !important;
-  font-weight: 500;
-}
 
-.settings-btn:hover {
-  background: #0fdc78 !important;
-  color: #2d3748 !important;
-}
-
-.settings-btn.el-button--primary {
-  background: #0fdc78 !important;
-  color: #2d3748 !important;
-}
-
-.settings-btn.el-button--primary:hover {
-  background: #ffffff !important;
-  color: #0fdc78 !important;
-}
 
 .main-content {
   display: flex;
@@ -174,61 +125,8 @@ onMounted(() => {
   width: 25%;
 }
 
-/* 设置侧边栏样式 */
-.settings-sidebar {
-  width: 35%;
-  background: #ffffff;
-  border-left: 2px solid #0fdc78;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slideIn 0.3s ease;
-}
 
-@keyframes slideIn {
-  from {
-    width: 0;
-    opacity: 0;
-  }
-  to {
-    width: 35%;
-    opacity: 1;
-  }
-}
 
-.sidebar-header {
-  background: #2d3748;
-  color: #ffffff;
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 2px solid #0fdc78;
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #0fdc78;
-}
-
-.close-btn.el-button--text {
-  color: #0fdc78 !important;
-  padding: 4px !important;
-  background: transparent !important;
-}
-
-.close-btn.el-button--text:hover {
-  color: #0fdc78 !important;
-  background: transparent !important;
-}
-
-.sidebar-content {
-  flex: 1;
-  overflow: auto;
-  padding: 0;
-}
 
 .right-tabs {
   height: 100%;
@@ -258,24 +156,7 @@ onMounted(() => {
     height: 50%;
   }
   
-  .settings-sidebar {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 100% !important;
-    height: 100vh;
-    z-index: 1000;
-    animation: slideInMobile 0.3s ease;
-  }
-  
-  @keyframes slideInMobile {
-    from {
-      transform: translateX(100%);
-    }
-    to {
-      transform: translateX(0);
-    }
-  }
+
 }
 
 @media (max-width: 768px) {

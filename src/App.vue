@@ -51,12 +51,12 @@ import MainLayout from "./components/MainLayout.vue";
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: #0fdc78;
   text-decoration: inherit;
 }
 
 a:hover {
-  color: #535bf2;
+  color: #0bc96a;
 }
 
 h1 {
@@ -79,18 +79,18 @@ button {
 button {
   cursor: pointer;
   background-color: #0fdc78;
-  color: #000000;
+  color: #ffffff;
 }
 
 button:hover {
-  background-color: #000000;
-  border-color: #000000;
+  background-color: #ffffff;
+  border-color: #0fdc78;
   color: #0fdc78;
 }
 
 button:active {
   background-color: #0fdc78;
-  color: #000000;
+  color: #ffffff;
 }
 
 input,

@@ -56,6 +56,7 @@ async fn validate_api_keys(engine: String, api_keys: serde_json::Value) -> Resul
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_video_info,
             extract_audio,

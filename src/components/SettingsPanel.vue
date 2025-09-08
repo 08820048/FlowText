@@ -618,12 +618,12 @@ function resetAllSettings() {
 }
 
 :deep(.el-input__wrapper:hover) {
-  border-color: #667eea;
+  border-color: #0fdc78;
   border-radius: 0;
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  border-color: #667eea;
+  border-color: #0fdc78;
   border-radius: 0;
 }
 
@@ -632,7 +632,7 @@ function resetAllSettings() {
 }
 
 :deep(.el-switch) {
-  --el-switch-on-color: #667eea;
+  --el-switch-on-color: #0fdc78;
 }
 
 :deep(.el-input-number) {
@@ -652,23 +652,23 @@ function resetAllSettings() {
 :deep(.el-button--primary) {
   background: #0fdc78;
   border-color: #0fdc78;
-  color: #000000;
+  color: #ffffff;
 }
 
 :deep(.el-button--primary:hover) {
-  background: #000000;
-  border-color: #000000;
+  background: #ffffff;
+  border-color: #0fdc78;
   color: #0fdc78;
 }
 
 :deep(.el-button:not(.el-button--primary)) {
   background: #ffffff;
-  color: #000000;
+  color: #0fdc78;
 }
 
 :deep(.el-button:not(.el-button--primary):hover) {
   background: #0fdc78;
-  color: #000000;
+  color: #ffffff;
 }
 
 :deep(.el-divider) {
@@ -690,7 +690,7 @@ function resetAllSettings() {
 }
 
 .settings-content::-webkit-scrollbar-thumb:hover {
-  background: #000000;
+  background: #0bc96a;
 }
 
 /* 主题预览样式已移除 */
