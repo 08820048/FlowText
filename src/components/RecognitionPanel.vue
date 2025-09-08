@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Microphone, Close } from '@element-plus/icons-vue';
 import { useVideoStore, useSettingsStore } from '../stores';
 import { extractAudio } from '../utils/videoUtils';
 import { startRecognition, getRecognitionStatus, cancelRecognition } from '../utils/recognitionUtils';
 import { ProgressMonitor } from '../utils/progressMonitor';
-import { ErrorHandler, ErrorType, ErrorSeverity } from '../utils/errorHandler';
+import { ErrorHandler, ErrorType, ErrorSeverity, withErrorHandling } from '../utils/errorHandler';
 import type { RecognitionEngine } from '../types';
 
 // 引入存储
@@ -14,7 +15,7 @@ const settingsStore = useSettingsStore();
 
 // 识别设置
 const recognitionSettings = ref({
-  engine: settingsStore.settings.defaultEngine as RecognitionEngine,
+  engine: 'whisper' as RecognitionEngine, // 默认使用whisper，不需要API密钥
   language: settingsStore.settings.defaultLanguage
 });
 
@@ -39,12 +40,21 @@ const errorMessage = ref('');
 
 // 计算属性：是否可以开始识别
 const canStartRecognition = computed(() => {
-  return (
+  const result = (
     videoStore.isVideoLoaded &&
     videoStore.selectedAudioTrackId !== null &&
     recognitionStatus.value !== 'extracting' &&
     recognitionStatus.value !== 'recognizing'
   );
+  
+  console.log('canStartRecognition 计算:', {
+    isVideoLoaded: videoStore.isVideoLoaded,
+    selectedAudioTrackId: videoStore.selectedAudioTrackId,
+    recognitionStatus: recognitionStatus.value,
+    result: result
+  });
+  
+  return result;
 });
 
 // 计算属性：是否可以取消识别
@@ -71,16 +81,34 @@ const supportedLanguages = ref([
  * 开始识别流程
  */
 async function startRecognitionProcess() {
+  console.log('=== 开始识别按钮点击 ===');
+  console.log('当前视频:', videoStore.currentVideo);
+  console.log('选择的音频轨道ID:', videoStore.selectedAudioTrackId);
+  console.log('识别设置:', recognitionSettings.value);
+  
+  // 先显示一个简单的提示，确认按钮点击有效
+  ElMessage.info('按钮点击成功！开始处理识别请求...');
+  
   if (!videoStore.currentVideo || videoStore.selectedAudioTrackId === null) {
     ElMessage.warning('请先导入视频并选择音频轨道');
     return;
   }
   
-  const progressTaskId = await ErrorHandler.withErrorHandling(async () => {
+  try {
     // 检查API密钥是否配置
     const engine = recognitionSettings.value.engine;
-    if (engine !== 'whisper' && !settingsStore.settings.apiKeys[engine]) {
-      throw new Error(`请先在设置中配置${engine}的API密钥`);
+    console.log('检查引擎:', engine);
+    console.log('API密钥配置:', settingsStore.settings.apiKeys);
+    
+    // 只有非Whisper引擎才需要检查API密钥
+    if (engine !== 'whisper') {
+      const engineKeys = settingsStore.settings.apiKeys[engine as keyof typeof settingsStore.settings.apiKeys];
+      console.log(`${engine}的API密钥:`, engineKeys);
+      
+      // 简单检查API密钥是否存在且不为空
+      if (!engineKeys || Object.keys(engineKeys).length === 0) {
+        throw new Error(`请先在设置中配置${engine}的API密钥`);
+      }
     }
     
     // 确认开始识别
@@ -98,8 +126,12 @@ async function startRecognitionProcess() {
     const engineName = engine === 'baidu' ? '百度智能云' : engine === 'tencent' ? '腾讯云' : engine === 'aliyun' ? '阿里云' : 'Whisper';
     const progressTaskId = ProgressMonitor.createTask(
       `语音识别 - ${engineName}`,
-      `正在识别视频: ${videoStore.currentVideo!.name}`,
-      120000 // 预估2分钟
+      120000, // 预估2分钟
+      {
+        video: videoStore.currentVideo!.fileName,
+        engine,
+        language: recognitionSettings.value.language
+      }
     );
     
     currentProgressTaskId.value = progressTaskId;
@@ -110,29 +142,26 @@ async function startRecognitionProcess() {
     errorMessage.value = '';
     
     // 提取音频阶段
-    ProgressMonitor.updateTask(progressTaskId, {
-      progress: 10,
-      message: '正在提取音频...'
-    });
+    ProgressMonitor.startTask(progressTaskId, '正在提取音频...');
+    ProgressMonitor.updateProgress(progressTaskId, 10, '正在提取音频...');
     
     loading.value.extract = true;
     const audioPath = await extractAudio(
       videoStore.currentVideo!.filePath,
-      videoStore.selectedAudioTrackId
+      videoStore.selectedAudioTrackId!
     );
     loading.value.extract = false;
     
     // 开始识别阶段
-    ProgressMonitor.updateTask(progressTaskId, {
-      progress: 30,
-      message: '音频提取完成，开始语音识别...'
-    });
+    ProgressMonitor.updateProgress(progressTaskId, 30, '音频提取完成，开始语音识别...');
     
     recognitionStatus.value = 'recognizing';
     loading.value.recognize = true;
     
     // 获取当前引擎的API密钥
-    const apiKeys = settingsStore.settings.apiKeys[recognitionSettings.value.engine];
+    const apiKeys = recognitionSettings.value.engine === 'whisper' ? 
+      undefined : 
+      settingsStore.settings.apiKeys[recognitionSettings.value.engine as keyof typeof settingsStore.settings.apiKeys];
     
     const task = await startRecognition(
       audioPath,
@@ -148,33 +177,19 @@ async function startRecognitionProcess() {
     // 定时检查识别状态
     await monitorRecognitionProgress(task.id, progressTaskId);
     
-    return progressTaskId;
-  }, {
-    context: {
-      component: 'RecognitionPanel',
-      action: 'startRecognition',
-      engine: recognitionSettings.value.engine,
-      language: recognitionSettings.value.language
-    },
-    onError: (error) => {
-      // 处理错误时的清理工作
-      recognitionStatus.value = 'failed';
-      errorMessage.value = error.message;
-      loading.value.extract = false;
-      loading.value.recognize = false;
-      
-      if (currentProgressTaskId.value) {
-        ProgressMonitor.failTask(currentProgressTaskId.value, error.message);
-        currentProgressTaskId.value = null;
-      }
-      
-      ElMessage.error(error.message);
+  } catch (error) {
+    // 处理错误时的清理工作
+    recognitionStatus.value = 'failed';
+    errorMessage.value = error instanceof Error ? error.message : String(error);
+    loading.value.extract = false;
+    loading.value.recognize = false;
+    
+    if (currentProgressTaskId.value) {
+      ProgressMonitor.failTask(currentProgressTaskId.value, error instanceof Error ? error.message : String(error));
+      currentProgressTaskId.value = null;
     }
-  });
-  
-  if (!progressTaskId) {
-    // 如果创建任务失败，重置状态
-    recognitionStatus.value = 'idle';
+    
+    ElMessage.error(error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -192,44 +207,51 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
       }
       
       const status = await getRecognitionStatus(taskId);
-      recognitionProgress.value = status.progress;
+      console.log('获取到识别状态:', status);
+      
+      // 将 0.0-1.0 转换为 0-100 的百分比
+      const progressPercent = status.progress * 100;
+      recognitionProgress.value = progressPercent;
+      
+      console.log('更新前端进度:', {
+        originalProgress: status.progress,
+        progressPercent: progressPercent,
+        status: status.state
+      });
       
       // 更新进度监控任务
-      const adjustedProgress = 30 + (status.progress * 0.7); // 30% 基础进度 + 70% 识别进度
-      ProgressMonitor.updateTask(progressTaskId, {
-        progress: adjustedProgress,
-        message: `识别进度: ${Math.round(status.progress)}%`
-      });
+      const adjustedProgress = 30 + (status.progress * 70); // 30% 基础进度 + 70% 识别进度
+      ProgressMonitor.updateProgress(progressTaskId, adjustedProgress, `识别进度: ${Math.round(progressPercent)}%`);
       
       // 更新任务状态
       videoStore.updateRecognitionTask(taskId, {
-        status: status.status,
-        progress: status.progress,
-        subtitles: status.subtitles,
+        status: status.state as any,
+        progress: progressPercent,
+        subtitles: status.result,
         error: status.error,
         updatedAt: new Date()
       });
       
-      if (status.status === 'completed') {
+      if (status.state === 'completed') {
         // 识别完成
         recognitionStatus.value = 'completed';
         clearInterval(checkInterval);
         
         // 设置字幕
-        if (status.subtitles && status.subtitles.length > 0) {
-          videoStore.setSubtitles(status.subtitles);
+        if (status.result && status.result.length > 0) {
+          videoStore.setSubtitles(status.result);
           
           // 完成进度任务
-          ProgressMonitor.completeTask(progressTaskId, `识别完成，共生成${status.subtitles.length}条字幕`);
+          ProgressMonitor.completeTask(progressTaskId, `识别完成，共生成${status.result.length}条字幕`);
           currentProgressTaskId.value = null;
           
-          ElMessage.success(`识别完成，共生成${status.subtitles.length}条字幕`);
+          ElMessage.success(`识别完成，共生成${status.result.length}条字幕`);
         } else {
           ProgressMonitor.completeTask(progressTaskId, '识别完成，但未生成字幕');
           currentProgressTaskId.value = null;
           ElMessage.warning('识别完成，但未生成字幕');
         }
-      } else if (status.status === 'failed') {
+      } else if (status.state === 'failed') {
         // 识别失败
         recognitionStatus.value = 'failed';
         errorMessage.value = status.error || '未知错误';
@@ -237,10 +259,10 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
         
         // 记录错误并失败进度任务
         const errorMsg = status.error || '未知错误';
-        ErrorHandler.handleError(
+        ErrorHandler.handle(
           new Error(errorMsg),
-          ErrorType.RECOGNITION_ERROR,
-          ErrorSeverity.HIGH,
+          'RECOGNITION_ERROR' as any,
+          'HIGH' as any,
           {
             component: 'RecognitionPanel',
             action: 'monitorProgress',
@@ -263,10 +285,10 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
       errorMessage.value = errorMsg;
       
       // 记录错误并失败进度任务
-      ErrorHandler.handleError(
+      ErrorHandler.handle(
         error instanceof Error ? error : new Error(String(error)),
-        ErrorType.NETWORK_ERROR,
-        ErrorSeverity.HIGH,
+        'NETWORK_ERROR' as any,
+        'HIGH' as any,
         {
           component: 'RecognitionPanel',
           action: 'monitorProgress',
@@ -287,7 +309,16 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
  * 取消识别
  */
 async function cancelRecognitionProcess() {
-  if (!currentTaskId.value) return;
+  console.log('=== 取消识别按钮点击 ===');
+  console.log('当前任务ID:', currentTaskId.value);
+  
+  // 先显示一个简单的提示，确认按钮点击有效
+  ElMessage.info('取消按钮点击成功！');
+  
+  if (!currentTaskId.value) {
+    ElMessage.warning('没有正在运行的识别任务');
+    return;
+  }
   
   try {
     await ElMessageBox.confirm('确定要取消当前识别任务吗？', '取消识别', {
@@ -330,10 +361,10 @@ async function cancelRecognitionProcess() {
       <el-form label-width="100px">
         <el-form-item label="识别引擎">
           <el-select v-model="recognitionSettings.engine" style="width: 100%">
+            <el-option label="Whisper" value="whisper" />
             <el-option label="百度智能云" value="baidu" />
             <el-option label="腾讯云" value="tencent" />
             <el-option label="阿里云" value="aliyun" />
-            <el-option label="Whisper" value="whisper" />
           </el-select>
         </el-form-item>
         

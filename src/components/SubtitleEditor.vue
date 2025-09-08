@@ -192,7 +192,12 @@ const currentSubtitle = computed(() => videoStore.currentSubtitle);
  * @param seconds 秒数
  * @returns 格式化的时间字符串 (HH:MM:SS)
  */
-function formatTime(seconds: number): string {
+function formatTime(seconds: number | undefined | null): string {
+  // 处理无效输入
+  if (seconds == null || isNaN(seconds) || seconds < 0) {
+    return '00:00:00';
+  }
+  
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
@@ -367,26 +372,25 @@ async function confirmExportSubtitles() {
     return;
   }
   
-  await ErrorHandler.withErrorHandling(async () => {
+  try {
     // 创建进度任务
     const progressTaskId = ProgressMonitor.createTask(
       `导出字幕 - ${exportForm.value.format.toUpperCase()}`,
-      `正在导出字幕文件: ${exportForm.value.fileName}.${exportForm.value.format}`,
-      5000 // 预估5秒
+      5000, // 预估5秒
+      {
+        fileName: exportForm.value.fileName,
+        format: exportForm.value.format,
+        subtitleCount: videoStore.subtitles.length
+      }
     );
     
     try {
-      ProgressMonitor.updateTask(progressTaskId, {
-        progress: 20,
-        message: '正在准备导出数据...'
-      });
+      ProgressMonitor.startTask(progressTaskId, '正在准备导出数据...');
+      ProgressMonitor.updateProgress(progressTaskId, 20, '正在准备导出数据...');
       
       const { exportSubtitles: exportSubtitlesUtil } = await import('../utils/videoUtils');
       
-      ProgressMonitor.updateTask(progressTaskId, {
-        progress: 60,
-        message: '正在生成字幕文件...'
-      });
+      ProgressMonitor.updateProgress(progressTaskId, 60, '正在生成字幕文件...');
       
       const filePath = await exportSubtitlesUtil(
         videoStore.subtitles,
@@ -402,18 +406,9 @@ async function confirmExportSubtitles() {
       ProgressMonitor.failTask(progressTaskId, `导出失败: ${error}`);
       throw error;
     }
-  }, {
-    context: {
-      component: 'SubtitleEditor',
-      action: 'exportSubtitles',
-      format: exportForm.value.format,
-      fileName: exportForm.value.fileName,
-      subtitleCount: videoStore.subtitles.length
-    },
-    onError: (error) => {
-      ElMessage.error(`导出字幕失败：${error.message}`);
-    }
-  });
+  } catch (error) {
+    ElMessage.error(`导出字幕失败：${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /**
@@ -430,32 +425,32 @@ async function confirmExportSubtitles() {
    const sampleSubtitles: Subtitle[] = [
      {
        id: '1',
-       startTime: 0,
-       endTime: 3,
+       startTime: 5.0,
+       endTime: 8.5,
        text: '欢迎使用FlowText字幕编辑器'
      },
      {
        id: '2',
-       startTime: 4,
-       endTime: 7,
+       startTime: 9.0,
+       endTime: 12.5,
        text: '这是一个功能强大的视频字幕制作工具'
      },
      {
        id: '3',
-       startTime: 8,
-       endTime: 12,
+       startTime: 13.0,
+       endTime: 17.5,
        text: '支持多种语音识别引擎，包括百度智能云、腾讯云等'
      },
      {
        id: '4',
-       startTime: 13,
-       endTime: 16,
+       startTime: 18.0,
+       endTime: 21.5,
        text: '您可以轻松编辑、添加和删除字幕'
      },
      {
        id: '5',
-       startTime: 17,
-       endTime: 20,
+       startTime: 22.0,
+       endTime: 25.5,
        text: '还支持多种字幕格式的导入和导出'
      }
    ];
@@ -524,20 +519,23 @@ async function confirmExportSubtitles() {
 
 .list-header {
   display: grid;
-  grid-template-columns: 200px 1fr 200px;
+  grid-template-columns: 180px 1fr 200px;
   gap: 16px;
   padding: 16px 20px;
   background: #667eea;
   color: white;
-
+  border-radius: 8px;
   font-weight: 600;
-  margin-bottom: 12px;
-  
+  margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .subtitle-item {
   display: grid;
-  grid-template-columns: 200px 1fr 200px;
+  grid-template-columns: 180px 1fr 200px;
   gap: 16px;
   padding: 16px 20px;
   border: 1px solid #e2e8f0;
@@ -546,6 +544,9 @@ async function confirmExportSubtitles() {
   background: white;
   position: relative;
   overflow: hidden;
+  border-radius: 8px;
+  min-height: 80px;
+  align-items: start;
 }
 
 .subtitle-item::before {
@@ -584,7 +585,9 @@ async function confirmExportSubtitles() {
 .col-time {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
 }
 
 .time-display {
@@ -592,12 +595,14 @@ async function confirmExportSubtitles() {
   font-size: 12px;
   color: #475569;
   background: #f1f5f9;
-  padding: 8px 12px;
-
+  padding: 6px 10px;
+  border-radius: 4px;
   text-align: center;
   border: 1px solid #e2e8f0;
   font-weight: 500;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  min-width: 80px;
 }
 
 .time-edit {
@@ -617,13 +622,19 @@ async function confirmExportSubtitles() {
 
 .col-text {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  padding: 0 8px;
+  min-height: 40px;
 }
 
 .text-display {
-  line-height: 1.5;
+  line-height: 1.6;
   color: #303133;
   word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  font-size: 14px;
+  padding: 4px 0;
 }
 
 .text-input {
@@ -632,15 +643,16 @@ async function confirmExportSubtitles() {
 
 .col-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding-top: 8px;
 }
 
 .action-buttons,
 .edit-buttons {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-direction: column;
 }
 
 /* 空状态样式 */
@@ -674,7 +686,8 @@ async function confirmExportSubtitles() {
   .list-header,
   .subtitle-item {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 12px;
+    padding: 12px 16px;
   }
   
   .col-time {
@@ -683,22 +696,32 @@ async function confirmExportSubtitles() {
   
   .col-text {
     order: 2;
+    padding: 0;
   }
   
   .col-actions {
     order: 3;
     justify-content: flex-start;
+    padding-top: 0;
   }
   
   .action-buttons,
   .edit-buttons {
     justify-content: flex-start;
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .subtitle-item {
+    min-height: auto;
   }
 }
 
 /* 扁平化滚动条样式 */
 .subtitle-list {
   overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  padding-right: 8px;
 }
 
 .subtitle-list::-webkit-scrollbar {
@@ -706,15 +729,17 @@ async function confirmExportSubtitles() {
 }
 
 .subtitle-list::-webkit-scrollbar-track {
-  background: #ffffff;
+  background: #f1f1f1;
+  border-radius: 4px;
 }
 
 .subtitle-list::-webkit-scrollbar-thumb {
-  background: #0fdc78;
+  background: #c1c1c1;
+  border-radius: 4px;
 }
 
 .subtitle-list::-webkit-scrollbar-thumb:hover {
-  background: #000000;
+  background: #a8a8a8;
 }
 
 /* 扁平化Element Plus组件样式 */
