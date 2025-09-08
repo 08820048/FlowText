@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useVideoStore } from '../stores';
-import { VideoPlay, VideoPause, Loading, FullScreen, Mute, Microphone } from '@element-plus/icons-vue';
+import { VideoPlay, VideoPause, Loading, Mute, Microphone } from '@element-plus/icons-vue';
 import { ErrorHandler, ErrorType, ErrorSeverity } from '../utils/errorHandler';
 import { ElMessage } from 'element-plus';
 
@@ -26,9 +26,6 @@ const isMuted = ref(false);
 
 // 播放速度
 const playbackRate = ref(1);
-
-// 全屏状态
-const isFullscreen = ref(false);
 
 // 控制栏显示状态
 const showControls = ref(true);
@@ -202,6 +199,9 @@ function togglePlay() {
   }
 }
 
+// 是否正在拖动进度条
+const isDragging = ref(false);
+
 // 调试函数
 function debugLoad() {
   console.log('=== 手动重新加载视频 ===');
@@ -213,12 +213,40 @@ function debugLoad() {
 
 function seekTo(time: number) {
   if (!videoRef.value) return;
+  console.log('跳转到时间:', time);
   videoRef.value.currentTime = time;
   videoStore.updateCurrentTime(time);
 }
 
+// 开始拖动进度条
+function onSliderStart() {
+  isDragging.value = true;
+  console.log('开始拖动进度条');
+}
+
+// 结束拖动进度条
+function onSliderEnd() {
+  isDragging.value = false;
+  console.log('结束拖动进度条');
+}
+
+// 拖动进度条时的实时更新
+function onSliderInput(value: number) {
+  if (isDragging.value && videoRef.value) {
+    videoRef.value.currentTime = value;
+    // 不更新store，避免与视频时间更新冲突
+  }
+}
+
+// 格式化进度条tooltip显示
+function formatTooltip(value: number): string {
+  const minutes = Math.floor(value / 60);
+  const seconds = Math.floor(value % 60);
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
 function updateTime() {
-  if (!videoRef.value) return;
+  if (!videoRef.value || isDragging.value) return; // 拖动时不更新
   videoStore.updateCurrentTime(videoRef.value.currentTime);
 }
 
@@ -248,24 +276,6 @@ function setPlaybackRate(rate: number) {
   if (!videoRef.value) return;
   playbackRate.value = rate;
   videoRef.value.playbackRate = rate;
-}
-
-function toggleFullscreen() {
-  const container = document.querySelector('.video-container') as HTMLElement;
-  if (!container) return;
-  if (!isFullscreen.value) {
-    if (container.requestFullscreen) {
-      container.requestFullscreen();
-    }
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    }
-  }
-}
-
-function handleFullscreenChange() {
-  isFullscreen.value = !!document.fullscreenElement;
 }
 
 function showControlsBar() {
@@ -367,7 +377,6 @@ onMounted(() => {
   console.log('=== VideoPlayer组件挂载 ===');
   
   timeUpdateInterval = window.setInterval(updateTime, 100);
-  document.addEventListener('fullscreenchange', handleFullscreenChange);
   
   nextTick(() => {
     if (videoRef.value) {
@@ -386,7 +395,6 @@ onUnmounted(() => {
   if (hideControlsTimer) {
     clearTimeout(hideControlsTimer);
   }
-  document.removeEventListener('fullscreenchange', handleFullscreenChange);
 });
 
 // 开发环境调试器（仅保留基本功能）
@@ -412,10 +420,12 @@ if (import.meta.env.DEV) {
           ref="videoRef"
           :src="videoSrc"
           preload="metadata"
-          controls="false"
+          :controls="false"
           playsinline
           webkit-playsinline
           x-webkit-airplay="deny"
+          disablepictureinpicture
+          controlslist="nodownload nofullscreen noremoteplayback"
           @play="handlePlayStateChange"
           @pause="handlePlayStateChange"
           @timeupdate="updateTime"
@@ -462,7 +472,12 @@ if (import.meta.env.DEV) {
             :min="0"
             :max="videoStore.currentVideo?.duration || 0"
             :step="0.1"
+            :show-tooltip="true"
+            :format-tooltip="formatTooltip"
             @change="seekTo"
+            @input="onSliderInput"
+            @mousedown="onSliderStart"
+            @mouseup="onSliderEnd"
             class="integrated-progress-bar"
           />
           
@@ -509,11 +524,6 @@ if (import.meta.env.DEV) {
               <el-option label="1.5x" :value="1.5" />
               <el-option label="2x" :value="2" />
             </el-select>
-            
-            <!-- 全屏按钮 -->
-            <el-button size="small" @click="toggleFullscreen">
-              <el-icon><FullScreen /></el-icon>
-            </el-button>
           </div>
         </div>
       </div>
@@ -557,6 +567,61 @@ if (import.meta.env.DEV) {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* 强制隐藏浏览器原生控制条 */
+.video-container video::-webkit-media-controls {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-play-button {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-timeline {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-current-time-display {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-mute-button {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-volume-slider {
+  display: none !important;
+}
+
+.video-container video::-webkit-media-controls-fullscreen-button {
+  display: none !important;
+}
+
+/* Firefox 浏览器控制条隐藏 */
+.video-container video::-moz-media-controls {
+  display: none !important;
+}
+
+/* 通用控制条隐藏 */
+.video-container video {
+  outline: none;
+}
+
+.video-container video:focus {
+  outline: none;
 }
 
 .subtitle-overlay {
@@ -679,19 +744,41 @@ if (import.meta.env.DEV) {
 
 .integrated-progress-bar :deep(.el-slider__runway) {
   background-color: rgba(255, 255, 255, 0.3);
-  height: 4px;
+  height: 6px;
+  cursor: pointer;
 }
 
 .integrated-progress-bar :deep(.el-slider__bar) {
-  background-color: #409eff;
-  height: 4px;
+  background-color: #0fdc78;
+  height: 6px;
 }
 
 .integrated-progress-bar :deep(.el-slider__button) {
-  width: 12px;
-  height: 12px;
-  border: 2px solid #409eff;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #0fdc78;
   background-color: white;
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.integrated-progress-bar :deep(.el-slider__button:hover) {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(15, 220, 120, 0.6);
+}
+
+.integrated-progress-bar :deep(.el-slider__button:active) {
+  cursor: grabbing;
+  transform: scale(1.3);
+}
+
+/* tooltip 样式优化 */
+.integrated-progress-bar :deep(.el-tooltip__trigger) {
+  outline: none;
+}
+
+.integrated-progress-bar :deep(.el-slider__button-wrapper) {
+  outline: none;
 }
 
 .control-buttons {
