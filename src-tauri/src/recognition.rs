@@ -599,18 +599,19 @@ async fn call_local_whisper(
         .arg("--task")
         .arg("transcribe"); // 明确指定转写任务
 
-    // 设置语言（如果不是自动检测）
-    if language != "auto" && !language.is_empty() {
+    // 设置语言（强制使用简体中文）
+    if language == "zh" || language == "zh-CN" || language.is_empty() {
+        cmd.arg("--language").arg("zh");
+        // 添加简体中文输出参数
+        cmd.arg("--initial_prompt").arg("以下是简体中文语音：");
+    } else {
         let whisper_lang = match language {
-            "zh" | "zh-CN" => "zh",
             "en" | "en-US" => "en",
             "ja" | "ja-JP" => "ja",
             "ko" | "ko-KR" => "ko",
-            _ => "auto",
+            _ => "zh",
         };
-        if whisper_lang != "auto" {
-            cmd.arg("--language").arg(whisper_lang);
-        }
+        cmd.arg("--language").arg(whisper_lang);
     }
 
     println!("执行Whisper命令: {:?}", cmd);
@@ -681,21 +682,36 @@ async fn call_python_whisper(
 
     update_task_status(task_id, "processing".to_string(), 0.3, None, None);
 
-    // 创建Python脚本
+    // 创建Python脚本（强制简体中文输出）
     let python_script = format!(
         r#"
 import whisper
 import sys
 
 try:
+    import opencc
+    converter = opencc.OpenCC('t2s')  # 繁体转简体
+except ImportError:
+    print("Warning: opencc not available, skipping traditional to simplified conversion", file=sys.stderr)
+    converter = None
+
+try:
     model = whisper.load_model("base")
-    result = model.transcribe("{}", language="{}")
+    # 强制使用中文识别，并指定简体中文提示
+    result = model.transcribe("{}", language="zh", initial_prompt="以下是简体中文语音：")
     
     # 输出SRT格式
     for i, segment in enumerate(result['segments']):
         start = segment['start']
         end = segment['end']
         text = segment['text'].strip()
+        
+        # 转换为简体中文
+        if converter and text:
+            try:
+                text = converter.convert(text)
+            except:
+                pass  # 如果转换失败，保持原文
         
         start_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(start // 3600),
@@ -716,12 +732,7 @@ except Exception as e:
     print(f"Error: {{e}}", file=sys.stderr)
     sys.exit(1)
 "#,
-        audio_path,
-        if language == "zh" || language == "zh-CN" {
-            "zh"
-        } else {
-            ""
-        }
+        audio_path
     );
 
     // 写入临时Python文件

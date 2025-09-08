@@ -279,8 +279,19 @@ function cancelEdit() {
  * @param time 时间（秒）
  */
 function jumpToTime(time: number) {
+  // 更新视频播放器的时间
   videoStore.updateCurrentTime(time);
-  ElMessage.info(`已跳转到 ${formatTime(time)}`);
+  
+  // 如果有视频播放器的全局引用，直接设置视频时间
+  const videoElement = document.querySelector('video') as HTMLVideoElement;
+  if (videoElement) {
+    videoElement.currentTime = time;
+    console.log(`已跳转到时间: ${formatTime(time)}`);
+    ElMessage.success(`已跳转到 ${formatTime(time)}`);
+  } else {
+    console.warn('未找到视频元素，仅更新时间状态');
+    ElMessage.warning('视频播放器未加载，无法跳转');
+  }
 }
 
 /**
