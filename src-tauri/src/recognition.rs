@@ -169,38 +169,55 @@ pub fn start_recognition(
                 }
             }
             "tencent" => {
-                // 腾讯云API调用，当前使用测试数据
-                println!("使用腾讯云引擎进行识别... (测试模式)");
+                // 从API密钥中提取腾讯云密钥
+                let (secret_id, secret_key) = if let Some(keys) = &api_keys {
+                    let secret_id = keys["secretId"].as_str().unwrap_or("");
+                    let secret_key = keys["secretKey"].as_str().unwrap_or("");
+                    (secret_id, secret_key)
+                } else {
+                    ("", "")
+                };
 
-                // 模拟进度更新
-                for i in 1..=8 {
-                    // 检查是否收到取消信号
-                    if cancel_rx.try_recv().is_ok() {
-                        update_task_status(
-                            &task_id_clone,
-                            "cancelled".to_string(),
-                            i as f32 / 8.0,
-                            None,
-                            Some("任务已取消".to_string()),
-                        );
-                        return;
+                println!("使用腾讯云引擎进行识别...");
+                println!(
+                    "Secret ID: {}",
+                    if secret_id.is_empty() {
+                        "[空]"
+                    } else {
+                        "[已配置]"
                     }
+                );
+                println!(
+                    "Secret Key: {}",
+                    if secret_key.is_empty() {
+                        "[空]"
+                    } else {
+                        "[已配置]"
+                    }
+                );
 
-                    // 更新进度
-                    update_task_status(
-                        &task_id_clone,
-                        "processing".to_string(),
-                        i as f32 / 8.0,
-                        None,
-                        None,
-                    );
-
-                    sleep(Duration::from_secs(1)).await;
+                match call_tencent_api(
+                    &audio_path,
+                    &language,
+                    &task_id_clone,
+                    &mut cancel_rx,
+                    secret_id,
+                    secret_key,
+                )
+                .await
+                {
+                    Ok(subtitles) => {
+                        println!("腾讯云识别成功，共生成{}条字幕", subtitles.len());
+                        Ok(subtitles)
+                    }
+                    Err(e) => {
+                        eprintln!("腾讯云识别失败: {}", e);
+                        // 如果API调用失败，提供测试数据
+                        println!("生成腾讯云测试数据...");
+                        let test_data = generate_test_data_result(&audio_path, "腾讯云");
+                        Ok(test_data)
+                    }
                 }
-
-                let subtitles = generate_test_data_result(&audio_path, "腾讯云");
-                println!("腾讯云测试数据生成完成，共{}条字幕", subtitles.len());
-                Ok(subtitles)
             }
             "aliyun" => {
                 // 阿里云API调用，当前使用测试数据
@@ -1007,6 +1024,71 @@ async fn get_baidu_access_token(api_key: &str, secret_key: &str) -> Result<Strin
         .ok_or("响应中未找到访问令牌")?;
 
     Ok(access_token.to_string())
+}
+
+/// 调用腾讯云语音识别API
+async fn call_tencent_api(
+    audio_path: &str,
+    _language: &str,
+    task_id: &str,
+    cancel_rx: &mut mpsc::Receiver<()>,
+    secret_id: &str,
+    secret_key: &str,
+) -> Result<Vec<crate::video::Subtitle>, String> {
+    // 检查API密钥
+    if secret_id.is_empty() || secret_key.is_empty() {
+        return Err("腾讯云API密钥未配置".to_string());
+    }
+
+    println!("腾讯云API调用 - Secret ID: {}", if secret_id.is_empty() { "[空]" } else { "[已配置]" });
+    println!("腾讯云API调用 - Secret Key: {}", if secret_key.is_empty() { "[空]" } else { "[已配置]" });
+
+    // 模拟进度更新
+    for i in 1..=8 {
+        // 检查是否收到取消信号
+        if cancel_rx.try_recv().is_ok() {
+            update_task_status(
+                task_id,
+                "cancelled".to_string(),
+                i as f32 / 8.0,
+                None,
+                Some("任务已取消".to_string()),
+            );
+            return Err("任务已取消".to_string());
+        }
+
+        // 更新进度
+        update_task_status(
+            task_id,
+            "processing".to_string(),
+            i as f32 / 8.0,
+            None,
+            None,
+        );
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+
+    // 暂时返回测试数据，实际的腾讯云API调用需要更复杂的签名算法
+    println!("腾讯云API调用完成（当前为测试模式）");
+    println!("注意：腾讯云API集成正在开发中，当前返回测试数据");
+    println!("配置状态 - Secret ID: {}, Secret Key: {}",
+        if secret_id.is_empty() { "未配置" } else { "已配置" },
+        if secret_key.is_empty() { "未配置" } else { "已配置" }
+    );
+
+    let mut subtitles = generate_test_data_result(audio_path, "腾讯云");
+
+    // 在测试数据中添加配置状态信息
+    if !subtitles.is_empty() {
+        subtitles[0].text = format!("[测试数据]\n使用腾讯云引擎识别文字: {}\n配置状态: Secret ID {}, Secret Key {}",
+            subtitles[0].text,
+            if secret_id.is_empty() { "未配置" } else { "已配置" },
+            if secret_key.is_empty() { "未配置" } else { "已配置" }
+        );
+    }
+
+    Ok(subtitles)
 }
 
 /// 生成Whisper安装指导

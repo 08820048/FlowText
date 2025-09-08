@@ -423,16 +423,12 @@ async function cancelRecognitionProcess() {
       <div v-if="recognitionStatus !== 'idle'" class="recognition-status">
         <div class="status-header">
           <span class="status-label">
-            {{ 
+            {{
               recognitionStatus === 'extracting' ? '正在提取音频...' :
               recognitionStatus === 'recognizing' ? '正在识别...' :
               recognitionStatus === 'completed' ? '识别完成' :
               '识别失败'
             }}
-          </span>
-          
-          <span v-if="recognitionStatus === 'recognizing'" class="progress-text">
-            {{ Math.round(recognitionProgress) }}%
           </span>
         </div>
         

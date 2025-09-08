@@ -128,22 +128,33 @@ watch(() => videoStore.currentVideo, async (newVideo) => {
   }
 }, { immediate: true });
 
+// 用于跟踪是否是程序内部更新时间（避免循环）
+let isInternalTimeUpdate = false;
+
 // 监听store中的currentTime变化，用于字幕跳转功能
-watch(() => videoStore.currentTime, (newTime) => {
-  console.log('=== currentTime变化监听器 ===');
-  console.log('新时间:', newTime);
+watch(() => videoStore.currentTime, (newTime, oldTime) => {
+  // 如果是内部更新，忽略
+  if (isInternalTimeUpdate) {
+    return;
+  }
+
+  // 只有当时间差异较大时才认为是跳转（避免正常播放时的小幅更新）
+  const timeDiff = Math.abs(newTime - (videoRef.value?.currentTime || 0));
+  if (timeDiff < 0.5) {
+    return; // 时间差小于0.5秒，认为是正常更新
+  }
+
+  console.log('=== 字幕跳转监听器 ===');
+  console.log('跳转到时间:', newTime);
+  console.log('当前视频时间:', videoRef.value?.currentTime);
+  console.log('时间差:', timeDiff);
 
   if (videoRef.value && typeof newTime === 'number' && newTime >= 0) {
-    console.log('设置视频时间:', newTime);
+    console.log('执行视频时间跳转:', newTime);
     videoRef.value.currentTime = newTime;
 
-    // 如果视频暂停状态，可以选择自动播放
-    if (videoRef.value.paused) {
-      console.log('视频已暂停，跳转后继续播放');
-      videoRef.value.play().catch(error => {
-        console.warn('自动播放失败:', error);
-      });
-    }
+    // 不自动播放，让用户控制播放状态
+    console.log('跳转完成，保持当前播放状态');
   }
 });
 
@@ -152,7 +163,7 @@ watch(() => videoStore.currentTime, (newTime) => {
  */
 function togglePlay() {
   console.log('=== 播放按钮点击 ===');
-  
+
   if (!videoRef.value) {
     console.error('视频元素未找到');
     ElMessage.error('视频元素未找到');
@@ -189,19 +200,28 @@ function togglePlay() {
     return;
   }
   
-  if (videoRef.value.paused) {
+  if (videoRef.value.paused || videoRef.value.ended) {
     console.log('尝试播放视频...');
+
+    // 确保音频设置正确
+    videoRef.value.volume = volume.value;
+    videoRef.value.muted = isMuted.value;
+
     const playPromise = videoRef.value.play();
-    
+
     if (playPromise !== undefined) {
       playPromise.then(() => {
         console.log('✓ 视频播放成功');
-        isPlaying.value = true;
+        console.log('播放后音频状态:', {
+          volume: videoRef.value?.volume,
+          muted: videoRef.value?.muted
+        });
+        // 不在这里设置 isPlaying，让事件处理器处理
         ElMessage.success('视频开始播放');
       }).catch((error) => {
         console.error('✗ 视频播放失败:', error);
         ElMessage.error(`播放失败: ${error.message}`);
-        
+
         // 特殊错误处理
         if (error.name === 'NotAllowedError') {
           ElMessage.warning('需要用户交互才能播放视频');
@@ -214,7 +234,7 @@ function togglePlay() {
     console.log('暂停视频...');
     videoRef.value.pause();
     console.log('✓ 视频已暂停');
-    isPlaying.value = false;
+    // 不在这里设置 isPlaying，让事件处理器处理
   }
 }
 
@@ -266,29 +286,61 @@ function formatTooltip(value: number): string {
 
 function updateTime() {
   if (!videoRef.value || isDragging.value) return; // 拖动时不更新
+
+  // 设置标志位，避免触发跳转监听器
+  isInternalTimeUpdate = true;
   videoStore.updateCurrentTime(videoRef.value.currentTime);
+  // 下一个tick后重置标志位
+  nextTick(() => {
+    isInternalTimeUpdate = false;
+  });
 }
 
-function handlePlayStateChange() {
+function handlePlayStateChange(event?: Event) {
   if (!videoRef.value) return;
-  console.log('播放状态变化:', videoRef.value.paused ? '暂停' : '播放');
-  isPlaying.value = !videoRef.value.paused;
+
+  const newPlaying = !videoRef.value.paused && !videoRef.value.ended;
+  console.log('播放状态变化:', newPlaying ? '播放' : '暂停');
+
+  isPlaying.value = newPlaying;
+}
+
+function handleVolumeChange() {
+  if (!videoRef.value) return;
+  console.log('音量变化:', {
+    volume: videoRef.value.volume,
+    muted: videoRef.value.muted
+  });
+  volume.value = videoRef.value.volume;
+  isMuted.value = videoRef.value.muted;
 }
 
 function toggleMute() {
   if (!videoRef.value) return;
+  console.log('切换静音状态:', !isMuted.value);
   isMuted.value = !isMuted.value;
   videoRef.value.muted = isMuted.value;
+  console.log('静音设置完成:', {
+    isMuted: isMuted.value,
+    videoMuted: videoRef.value.muted,
+    volume: videoRef.value.volume
+  });
 }
 
 function setVolume(newVolume: number) {
   if (!videoRef.value) return;
+  console.log('设置音量:', newVolume);
   volume.value = newVolume;
   videoRef.value.volume = newVolume;
   if (newVolume > 0 && isMuted.value) {
+    console.log('音量大于0，取消静音');
     isMuted.value = false;
     videoRef.value.muted = false;
   }
+  console.log('音量设置完成:', {
+    volume: videoRef.value.volume,
+    muted: videoRef.value.muted
+  });
 }
 
 function setPlaybackRate(rate: number) {
@@ -361,6 +413,18 @@ function handleCanPlay() {
 function handleLoadedMetadata() {
   console.log('=== 视频元数据加载完成 ===');
   if (videoRef.value) {
+    // 确保音频设置正确
+    videoRef.value.volume = volume.value;
+    videoRef.value.muted = isMuted.value;
+
+    console.log('视频元数据:', {
+      duration: videoRef.value.duration,
+      videoWidth: videoRef.value.videoWidth,
+      videoHeight: videoRef.value.videoHeight,
+      volume: videoRef.value.volume,
+      muted: videoRef.value.muted
+    });
+
     videoStore.updateCurrentTime(0);
   }
   showControlsBar();
@@ -394,14 +458,35 @@ let timeUpdateInterval: number | null = null;
 
 onMounted(() => {
   console.log('=== VideoPlayer组件挂载 ===');
-  
-  timeUpdateInterval = window.setInterval(updateTime, 100);
-  
+
+  // 恢复定时器，但降低频率避免冲突
+  timeUpdateInterval = window.setInterval(updateTime, 250);
+
   nextTick(() => {
     if (videoRef.value) {
       console.log('初始化视频元素');
+      console.log('设置初始音频参数:', {
+        volume: volume.value,
+        muted: isMuted.value,
+        playbackRate: playbackRate.value
+      });
+
       videoRef.value.volume = volume.value;
+      videoRef.value.muted = isMuted.value;
       videoRef.value.playbackRate = playbackRate.value;
+
+      // 确保音频轨道可用
+      if (videoRef.value.audioTracks && videoRef.value.audioTracks.length > 0) {
+        console.log('音频轨道数量:', videoRef.value.audioTracks.length);
+        for (let i = 0; i < videoRef.value.audioTracks.length; i++) {
+          console.log(`音频轨道 ${i}:`, {
+            enabled: videoRef.value.audioTracks[i].enabled,
+            kind: videoRef.value.audioTracks[i].kind,
+            label: videoRef.value.audioTracks[i].label,
+            language: videoRef.value.audioTracks[i].language
+          });
+        }
+      }
     }
   });
 });
@@ -440,6 +525,8 @@ if (import.meta.env.DEV) {
           :src="videoSrc"
           preload="metadata"
           :controls="false"
+          :muted="isMuted"
+          :volume="volume"
           playsinline
           webkit-playsinline
           x-webkit-airplay="deny"
@@ -449,11 +536,12 @@ if (import.meta.env.DEV) {
           @pause="handlePlayStateChange"
           @timeupdate="updateTime"
           @loadedmetadata="handleLoadedMetadata"
-          @loadeddata="handleLoadedData" 
+          @loadeddata="handleLoadedData"
           @canplay="handleCanPlay"
           @error="handleVideoError"
           @loadstart="handleLoadStart"
           @progress="handleProgress"
+          @volumechange="handleVolumeChange"
         ></video>
         
         <!-- 字幕显示区域 -->
