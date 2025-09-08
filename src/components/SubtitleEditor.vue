@@ -279,19 +279,23 @@ function cancelEdit() {
  * @param time 时间（秒）
  */
 function jumpToTime(time: number) {
-  // 更新视频播放器的时间
-  videoStore.updateCurrentTime(time);
-  
-  // 如果有视频播放器的全局引用，直接设置视频时间
-  const videoElement = document.querySelector('video') as HTMLVideoElement;
-  if (videoElement) {
-    videoElement.currentTime = time;
-    console.log(`已跳转到时间: ${formatTime(time)}`);
-    ElMessage.success(`已跳转到 ${formatTime(time)}`);
-  } else {
-    console.warn('未找到视频元素，仅更新时间状态');
-    ElMessage.warning('视频播放器未加载，无法跳转');
+  console.log('=== 字幕跳转功能 ===');
+  console.log('跳转时间:', time);
+  console.log('格式化时间:', formatTime(time));
+
+  // 验证时间参数
+  if (typeof time !== 'number' || isNaN(time) || time < 0) {
+    console.error('无效的时间参数:', time);
+    ElMessage.error('无效的时间参数');
+    return;
   }
+
+  // 更新视频播放器的时间（通过store，会触发VideoPlayer组件的监听器）
+  console.log('更新store中的currentTime');
+  videoStore.updateCurrentTime(time);
+
+  console.log(`已跳转到时间: ${formatTime(time)}`);
+  ElMessage.success(`已跳转到 ${formatTime(time)}`);
 }
 
 /**
@@ -480,8 +484,7 @@ async function confirmExportSubtitles() {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  background: #f8fafc;
-
+  background: #ffffff;
 }
 
 .editor-header {
@@ -491,19 +494,16 @@ async function confirmExportSubtitles() {
   margin-bottom: 20px;
   padding: 16px 20px;
   background: white;
-
-  
-  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .editor-header h3 {
   margin: 0;
   font-size: 18px;
-  font-weight: 700;
-  background: #667eea;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-weight: 600;
+  color: #2c3e50;
 }
 
 .header-actions {
@@ -516,8 +516,9 @@ async function confirmExportSubtitles() {
   flex: 1;
   overflow: hidden;
   background: white;
-
-  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* 字幕列表样式 */
@@ -533,15 +534,24 @@ async function confirmExportSubtitles() {
   grid-template-columns: 180px 1fr 200px;
   gap: 16px;
   padding: 16px 20px;
-  background: #667eea;
-  color: white;
+  background: #f8f9fa;
+  color: #495057;
   border-radius: 8px;
   font-weight: 600;
   margin-bottom: 16px;
   position: sticky;
   top: 0;
   z-index: 10;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 1px solid #e9ecef;
+}
+
+.list-header .col-time,
+.list-header .col-text,
+.list-header .col-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .subtitle-item {
@@ -567,16 +577,16 @@ async function confirmExportSubtitles() {
   left: 0;
   right: 0;
   height: 3px;
-  background: #667eea;
+  background: #0fdc78;
   transform: scaleX(0);
   transition: transform 0.3s ease;
 }
 
 .subtitle-item:hover {
-  border-color: #c6e2ff;
-  background: #f0f9ff;
-  transform: translateY(-2px);
-  
+  border-color: #0fdc78;
+  background: #f8fff8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(15, 220, 120, 0.1);
 }
 
 .subtitle-item:hover::before {
@@ -584,9 +594,9 @@ async function confirmExportSubtitles() {
 }
 
 .subtitle-item.active {
-  border-color: #667eea;
-  background: #ecf5ff;
-  
+  border-color: #0fdc78;
+  background: #f0fff4;
+  box-shadow: 0 2px 8px rgba(15, 220, 120, 0.15);
 }
 
 .subtitle-item.active::before {
@@ -654,9 +664,11 @@ async function confirmExportSubtitles() {
 
 .col-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding-top: 8px;
+  padding: 8px;
+  min-width: 80px;
+  position: relative;
 }
 
 .action-buttons,
@@ -664,6 +676,35 @@ async function confirmExportSubtitles() {
   display: flex;
   gap: 6px;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  margin: 0 auto;
+}
+
+/* 强制按钮对齐样式 */
+:deep(.action-buttons .el-button),
+:deep(.edit-buttons .el-button) {
+  width: 60px !important;
+  min-width: 60px !important;
+  max-width: 60px !important;
+  justify-content: center !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* 确保按钮内的文字居中 */
+:deep(.action-buttons .el-button span),
+:deep(.edit-buttons .el-button span) {
+  width: 100% !important;
+  text-align: center !important;
+  display: block !important;
 }
 
 /* 空状态样式 */
@@ -674,10 +715,11 @@ async function confirmExportSubtitles() {
   align-items: center;
   justify-content: center;
   text-align: center;
-  color: #64748b;
+  color: #6c757d;
   background: white;
   margin: 16px;
   padding: 40px;
+  border-radius: 8px;
 }
 
 .empty-state p {
@@ -689,7 +731,7 @@ async function confirmExportSubtitles() {
 .empty-state p:first-child {
   font-weight: 600;
   font-size: 18px;
-  color: #475569;
+  color: #495057;
 }
 
 /* 响应式设计 */
@@ -782,27 +824,16 @@ async function confirmExportSubtitles() {
   color: #000000;
 }
 
-:deep(.el-button--primary-old) {
-  background: #667eea;
-  border: none;
-}
-
-:deep(.el-button--primary:hover) {
-  background: #5a67d8;
-  transform: translateY(-1px);
-  border-radius: 0;
-}
-
 :deep(.el-button--danger) {
-  background: #f56565;
-  border: none;
+  background: #dc3545;
+  border-color: #dc3545;
   color: white;
 }
 
 :deep(.el-button--danger:hover) {
-  background: #e53e3e;
-  transform: translateY(-1px);
-  border-radius: 0;
+  background: #c82333;
+  border-color: #c82333;
+  color: white;
 }
 
 :deep(.el-input__wrapper) {

@@ -13,10 +13,10 @@
     "windows": [
       {
         "title": "FlowText - 视频字幕生成工具",
-        "width": 1400,
-        "height": 900,
-        "minWidth": 1200,
-        "minHeight": 800,
+        "width": 1600,
+        "height": 1000,
+        "minWidth": 1400,
+        "minHeight": 900,
         "resizable": true,
         "fullscreen": false,
         "center": true

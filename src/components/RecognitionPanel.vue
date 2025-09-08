@@ -243,7 +243,15 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
 
         // 设置字幕
         if (status.result && status.result.length > 0) {
-          videoStore.setSubtitles(status.result);
+          // 转换后端数据格式（start_time -> startTime, end_time -> endTime）
+          const convertedSubtitles = status.result.map((subtitle: any) => ({
+            id: subtitle.id,
+            startTime: subtitle.start_time,
+            endTime: subtitle.end_time,
+            text: subtitle.text
+          }));
+
+          videoStore.setSubtitles(convertedSubtitles);
 
           // 完成进度任务
           ProgressMonitor.completeTask(progressTaskId, `识别完成，共生成${status.result.length}条字幕`);

@@ -128,6 +128,25 @@ watch(() => videoStore.currentVideo, async (newVideo) => {
   }
 }, { immediate: true });
 
+// 监听store中的currentTime变化，用于字幕跳转功能
+watch(() => videoStore.currentTime, (newTime) => {
+  console.log('=== currentTime变化监听器 ===');
+  console.log('新时间:', newTime);
+
+  if (videoRef.value && typeof newTime === 'number' && newTime >= 0) {
+    console.log('设置视频时间:', newTime);
+    videoRef.value.currentTime = newTime;
+
+    // 如果视频暂停状态，可以选择自动播放
+    if (videoRef.value.paused) {
+      console.log('视频已暂停，跳转后继续播放');
+      videoRef.value.play().catch(error => {
+        console.warn('自动播放失败:', error);
+      });
+    }
+  }
+});
+
 /**
  * 播放/暂停视频
  */
