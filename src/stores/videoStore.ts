@@ -63,7 +63,8 @@ export const useVideoStore = defineStore('video', () => {
     // 重置相关状态
     subtitles.value = [];
     currentTime.value = 0;
-    selectedAudioTrackId.value = video?.audioTracks[0]?.id || null;
+    // 不在这里自动设置音频轨道，避免递归更新
+    selectedAudioTrackId.value = null;
   }
   
   /**

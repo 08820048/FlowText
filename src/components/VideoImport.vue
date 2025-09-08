@@ -5,7 +5,7 @@ import { Upload } from '@element-plus/icons-vue';
 import { useVideoStore } from '../stores';
 import { selectVideoFile, getVideoInfo } from '../utils/videoUtils';
 import { ProgressMonitor } from '../utils/progressMonitor';
-import { ErrorHandler, ErrorType, ErrorSeverity } from '../utils/errorHandler';
+import { ErrorHandler, ErrorType, ErrorSeverity, withErrorHandling } from '../utils/errorHandler';
 
 // 引入视频存储
 const videoStore = useVideoStore();
@@ -17,12 +17,16 @@ const loading = ref(false);
  * 导入视频文件
  */
 async function importVideo() {
-  await ErrorHandler.withErrorHandling(async () => {
+  try {
+    console.log('开始导入视频');
     loading.value = true;
     
     // 打开文件选择对话框
+    console.log('正在选择视频文件...');
     const filePath = await selectVideoFile();
+    console.log('选择的文件路径:', filePath);
     if (!filePath) {
+      console.log('用户取消了文件选择');
       loading.value = false;
       return;
     }
@@ -30,26 +34,25 @@ async function importVideo() {
     // 创建进度任务
     const progressTaskId = ProgressMonitor.createTask(
       '导入视频文件',
-      `正在分析视频文件: ${filePath.split('/').pop()}`,
       10000 // 预估10秒
     );
     
     try {
-      ProgressMonitor.updateTask(progressTaskId, {
-        progress: 30,
-        message: '正在读取视频信息...'
-      });
+      // 开始任务
+      ProgressMonitor.startTask(progressTaskId, `正在分析视频文件: ${filePath.split('/').pop()}`);
+      ProgressMonitor.updateProgress(progressTaskId, 30, '正在读取视频信息...');
       
       // 获取视频信息
+      console.log('正在获取视频信息...');
       const videoInfo = await getVideoInfo(filePath);
+      console.log('获取到的视频信息:', videoInfo);
       
-      ProgressMonitor.updateTask(progressTaskId, {
-        progress: 80,
-        message: '正在处理音频轨道信息...'
-      });
+      ProgressMonitor.updateProgress(progressTaskId, 80, '正在处理音频轨道信息...');
       
       // 更新存储中的视频信息
+      console.log('正在更新视频存储...');
       videoStore.setCurrentVideo(videoInfo);
+      console.log('视频存储更新完成，当前视频:', videoStore.currentVideo);
       
       // 自动选择第一个音频轨道
       if (videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
@@ -64,16 +67,20 @@ async function importVideo() {
     } finally {
       loading.value = false;
     }
-  }, {
-    context: {
-      component: 'VideoImport',
-      action: 'importVideo'
-    },
-    onError: (error) => {
-      loading.value = false;
-      ElMessage.error(`视频导入失败: ${error.message}`);
-    }
-  });
+  } catch (error) {
+    // 处理错误
+    ErrorHandler.handle(
+      error as Error,
+      ErrorType.VIDEO_PROCESSING,
+      ErrorSeverity.MEDIUM,
+      {
+        component: 'VideoImport',
+        action: 'importVideo'
+      }
+    );
+    loading.value = false;
+    ElMessage.error(`视频导入失败: ${(error as Error).message}`);
+  }
 }
 </script>
 
@@ -130,15 +137,15 @@ async function importVideo() {
 <style scoped>
 .video-import {
   width: 100%;
-  height: 100%;
+  flex-shrink: 0;
 }
 
 .import-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%;
   min-height: 200px;
+  padding: 20px;
 }
 
 .video-info {

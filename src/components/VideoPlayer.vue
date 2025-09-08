@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useVideoStore } from '../stores';
 import { VideoPlay, VideoPause, Loading, FullScreen, Mute, Microphone } from '@element-plus/icons-vue';
 import { ErrorHandler, ErrorType, ErrorSeverity } from '../utils/errorHandler';
+import { ElMessage } from 'element-plus';
 
-// 引入视频存储
+// 获取视频存储
 const videoStore = useVideoStore();
 
 // 视频元素引用
@@ -33,30 +34,100 @@ const isFullscreen = ref(false);
 const showControls = ref(true);
 let hideControlsTimer: number | null = null;
 
-// 监听视频变化，更新视频源
+// 视频加载错误信息
+const videoLoadError = ref('');
+
+// 监听视频变化，设置视频源
 watch(() => videoStore.currentVideo, async (newVideo) => {
+  console.log('=== 视频变化监听器 ===');
+  console.log('newVideo:', newVideo);
+  
   if (newVideo) {
-    isLoading.value = true;
-    await ErrorHandler.withErrorHandling(async () => {
-      // 使用Tauri的convertFileSrc将本地文件路径转换为可访问的URL
-      const { convertFileSrc } = await import('@tauri-apps/api/core');
-      videoSrc.value = convertFileSrc(newVideo.filePath);
-    }, {
-      context: {
-        component: 'VideoPlayer',
-        action: 'loadVideo',
-        filePath: newVideo.filePath
-      },
-      onError: (error) => {
-        console.error('加载视频失败:', error);
-        videoSrc.value = '';
-      },
-      onFinally: () => {
-        isLoading.value = false;
+    try {
+      isLoading.value = true;
+      videoLoadError.value = '';
+      console.log('开始加载视频:', newVideo.filePath);
+      
+      // 检查浏览器支持的视频格式
+      const videoElement = document.createElement('video');
+      const canPlayMp4 = videoElement.canPlayType('video/mp4');
+      const canPlayWebm = videoElement.canPlayType('video/webm');
+      const canPlayOgg = videoElement.canPlayType('video/ogg');
+      
+      console.log('浏览器视频格式支持:');
+      console.log('- MP4:', canPlayMp4);
+      console.log('- WebM:', canPlayWebm);
+      console.log('- Ogg:', canPlayOgg);
+      
+      // 检查是否在Tauri环境中
+      if (typeof window !== 'undefined' && ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)) {
+        console.log('Tauri环境检测成功');
+        try {
+          // 使用Tauri的convertFileSrc将本地文件路径转换为可访问的URL
+          const { convertFileSrc } = await import('@tauri-apps/api/core');
+          const convertedSrc = await convertFileSrc(newVideo.filePath);
+          console.log('路径转换结果:');
+          console.log('  原始路径:', newVideo.filePath);
+          console.log('  转换路径:', convertedSrc);
+          videoSrc.value = convertedSrc;
+        } catch (tauriError) {
+          console.error('Tauri convertFileSrc失败:', tauriError);
+          console.log('尝试使用asset协议...');
+          // 使用asset协议作为备选方案
+          const assetUrl = `asset://localhost/${encodeURIComponent(newVideo.filePath)}`;
+          console.log('Asset URL:', assetUrl);
+          videoSrc.value = assetUrl;
+        }
+      } else {
+        console.log('非Tauri环境，使用file://协议');
+        videoSrc.value = `file://${newVideo.filePath}`;
       }
-    });
+      
+      console.log('设置视频源完成:', videoSrc.value);
+      
+      // 等待下一个tick确保DOM更新
+      await nextTick();
+      
+      // 检查video元素是否存在
+      if (videoRef.value) {
+        console.log('video元素存在，开始加载');
+        
+        // 添加额外的视频属性以提高兼容性
+        videoRef.value.crossOrigin = 'anonymous';
+        videoRef.value.preload = 'metadata';
+        
+        // 先尝试加载
+        videoRef.value.load();
+        console.log('已调用video.load()');
+        
+        // 设置超时检查
+        setTimeout(() => {
+          if (videoRef.value && videoRef.value.readyState === 0) {
+            console.warn('视频加载超时，尝试重新加载');
+            videoLoadError.value = '视频加载超时，可能是格式不兼容';
+          }
+        }, 5000);
+        
+      } else {
+        console.warn('video元素未找到');
+        videoLoadError.value = 'Video元素未找到';
+      }
+      
+    } catch (error) {
+      console.error('加载视频失败:', error);
+      videoLoadError.value = `加载失败: ${error}`;
+      videoSrc.value = '';
+    } finally {
+      isLoading.value = false;
+    }
   } else {
+    console.log('清空视频源');
     videoSrc.value = '';
+    videoLoadError.value = '';
+    if (videoRef.value) {
+      videoRef.value.removeAttribute('src');
+      videoRef.value.load();
+    }
   }
 }, { immediate: true });
 
@@ -64,91 +135,124 @@ watch(() => videoStore.currentVideo, async (newVideo) => {
  * 播放/暂停视频
  */
 function togglePlay() {
-  if (!videoRef.value) return;
+  console.log('=== 播放按钮点击 ===');
+  
+  if (!videoRef.value) {
+    console.error('视频元素未找到');
+    ElMessage.error('视频元素未找到');
+    return;
+  }
+  
+  console.log('视频状态详细信息:');
+  console.log('- readyState:', videoRef.value.readyState);
+  console.log('- networkState:', videoRef.value.networkState);
+  console.log('- duration:', videoRef.value.duration);
+  console.log('- currentSrc:', videoRef.value.currentSrc);
+  console.log('- paused:', videoRef.value.paused);
+  console.log('- ended:', videoRef.value.ended);
+  console.log('- error:', videoRef.value.error);
+  
+  // 检查视频是否有错误
+  if (videoRef.value.error) {
+    console.error('视频有错误:', videoRef.value.error);
+    ElMessage.error(`视频错误: ${videoRef.value.error.message}`);
+    return;
+  }
+  
+  // 检查视频是否已加载
+  if (videoRef.value.readyState === 0) {
+    console.warn('视频尚未开始加载');
+    ElMessage.warning('视频尚未加载，请等待...');
+    videoRef.value.load();
+    return;
+  }
+  
+  if (videoRef.value.readyState < 2) {
+    console.warn('视频数据不足，无法播放');
+    ElMessage.warning('视频数据不足，请等待加载完成...');
+    return;
+  }
   
   if (videoRef.value.paused) {
-    videoRef.value.play();
-    isPlaying.value = true;
+    console.log('尝试播放视频...');
+    const playPromise = videoRef.value.play();
+    
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        console.log('✓ 视频播放成功');
+        isPlaying.value = true;
+        ElMessage.success('视频开始播放');
+      }).catch((error) => {
+        console.error('✗ 视频播放失败:', error);
+        ElMessage.error(`播放失败: ${error.message}`);
+        
+        // 特殊错误处理
+        if (error.name === 'NotAllowedError') {
+          ElMessage.warning('需要用户交互才能播放视频');
+        } else if (error.name === 'NotSupportedError') {
+          ElMessage.error('浏览器不支持该视频格式');
+        }
+      });
+    }
   } else {
+    console.log('暂停视频...');
     videoRef.value.pause();
+    console.log('✓ 视频已暂停');
     isPlaying.value = false;
   }
 }
 
-/**
- * 跳转到指定时间
- * @param time 时间（秒）
- */
+// 调试函数
+function debugLoad() {
+  console.log('=== 手动重新加载视频 ===');
+  if (videoRef.value) {
+    videoRef.value.load();
+    ElMessage.info('正在重新加载视频...');
+  }
+}
+
 function seekTo(time: number) {
   if (!videoRef.value) return;
-  
   videoRef.value.currentTime = time;
   videoStore.updateCurrentTime(time);
 }
 
-/**
- * 更新当前播放时间
- */
 function updateTime() {
   if (!videoRef.value) return;
-  
   videoStore.updateCurrentTime(videoRef.value.currentTime);
 }
 
-/**
- * 视频播放状态变化处理
- */
 function handlePlayStateChange() {
   if (!videoRef.value) return;
-  
+  console.log('播放状态变化:', videoRef.value.paused ? '暂停' : '播放');
   isPlaying.value = !videoRef.value.paused;
 }
 
-/**
- * 切换静音状态
- */
 function toggleMute() {
   if (!videoRef.value) return;
-  
   isMuted.value = !isMuted.value;
   videoRef.value.muted = isMuted.value;
 }
 
-/**
- * 设置音量
- * @param newVolume 音量值 (0-1)
- */
 function setVolume(newVolume: number) {
   if (!videoRef.value) return;
-  
   volume.value = newVolume;
   videoRef.value.volume = newVolume;
-  
-  // 如果音量大于0，取消静音
   if (newVolume > 0 && isMuted.value) {
     isMuted.value = false;
     videoRef.value.muted = false;
   }
 }
 
-/**
- * 设置播放速度
- * @param rate 播放速度
- */
 function setPlaybackRate(rate: number) {
   if (!videoRef.value) return;
-  
   playbackRate.value = rate;
   videoRef.value.playbackRate = rate;
 }
 
-/**
- * 切换全屏
- */
 function toggleFullscreen() {
   const container = document.querySelector('.video-container') as HTMLElement;
   if (!container) return;
-  
   if (!isFullscreen.value) {
     if (container.requestFullscreen) {
       container.requestFullscreen();
@@ -160,25 +264,15 @@ function toggleFullscreen() {
   }
 }
 
-/**
- * 处理全屏状态变化
- */
 function handleFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement;
 }
 
-/**
- * 显示控制栏
- */
 function showControlsBar() {
   showControls.value = true;
-  
-  // 清除之前的定时器
   if (hideControlsTimer) {
     clearTimeout(hideControlsTimer);
   }
-  
-  // 3秒后隐藏控制栏（仅在播放时）
   if (isPlaying.value) {
     hideControlsTimer = window.setTimeout(() => {
       showControls.value = false;
@@ -186,85 +280,124 @@ function showControlsBar() {
   }
 }
 
-/**
- * 处理鼠标移动
- */
 function handleMouseMove() {
   showControlsBar();
 }
 
-/**
- * 处理键盘快捷键
- * @param event 键盘事件
- */
-function handleKeydown(event: KeyboardEvent) {
-  if (!videoRef.value) return;
+function handleVideoError(event: Event) {
+  console.error('=== 视频错误事件 ===');
+  console.error('event:', event);
+  isLoading.value = false;
   
-  switch (event.code) {
-    case 'Space':
-      event.preventDefault();
-      togglePlay();
-      break;
-    case 'ArrowLeft':
-      event.preventDefault();
-      seekTo(Math.max(0, videoRef.value.currentTime - 5));
-      break;
-    case 'ArrowRight':
-      event.preventDefault();
-      seekTo(Math.min(videoRef.value.duration, videoRef.value.currentTime + 5));
-      break;
-    case 'ArrowUp':
-      event.preventDefault();
-      setVolume(Math.min(1, volume.value + 0.1));
-      break;
-    case 'ArrowDown':
-      event.preventDefault();
-      setVolume(Math.max(0, volume.value - 0.1));
-      break;
-    case 'KeyM':
-      event.preventDefault();
-      toggleMute();
-      break;
-    case 'KeyF':
-      event.preventDefault();
-      toggleFullscreen();
-      break;
+  const video = event.target as HTMLVideoElement;
+  const error = video.error;
+  
+  if (error) {
+    console.error('错误详情:', {
+      code: error.code,
+      message: error.message
+    });
+    
+    let errorMsg = '';
+    switch (error.code) {
+      case MediaError.MEDIA_ERR_ABORTED:
+        errorMsg = '视频加载被中止';
+        break;
+      case MediaError.MEDIA_ERR_NETWORK:
+        errorMsg = '网络错误';
+        break;
+      case MediaError.MEDIA_ERR_DECODE:
+        errorMsg = '视频解码错误';
+        break;
+      case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+        errorMsg = '视频格式不支持';
+        break;
+      default:
+        errorMsg = '未知视频错误';
+    }
+    
+    videoLoadError.value = errorMsg;
+    ElMessage.error(errorMsg);
   }
 }
 
-// 定时更新播放时间
+function handleCanPlay() {
+  console.log('=== 视频可播放 ===');
+  isLoading.value = false;
+  console.log('readyState:', videoRef.value?.readyState);
+  console.log('duration:', videoRef.value?.duration);
+  ElMessage.success('视频加载完成，可以播放');
+}
+
+function handleLoadedMetadata() {
+  console.log('=== 视频元数据加载完成 ===');
+  if (videoRef.value) {
+    videoStore.updateCurrentTime(0);
+  }
+  showControlsBar();
+}
+
+function handleLoadedData() {
+  console.log('=== 视频数据加载完成 ===');
+  isLoading.value = false;
+}
+
+function handleLoadStart() {
+  console.log('=== 视频开始加载 ===');
+  if (videoRef.value) {
+    console.log('视频加载开始 - currentSrc:', videoRef.value.currentSrc);
+  }
+}
+
+function handleProgress() {
+  if (videoRef.value && videoRef.value.buffered.length > 0) {
+    const buffered = videoRef.value.buffered;
+    console.log('缓冲进度:', {
+      ranges: buffered.length,
+      start: buffered.start(0),
+      end: buffered.end(buffered.length - 1),
+      duration: videoRef.value.duration
+    });
+  }
+}
+
 let timeUpdateInterval: number | null = null;
 
 onMounted(() => {
-  // 每100ms更新一次播放时间，比原生timeupdate事件更平滑
-  timeUpdateInterval = window.setInterval(updateTime, 100);
+  console.log('=== VideoPlayer组件挂载 ===');
   
-  // 添加全屏状态监听
+  timeUpdateInterval = window.setInterval(updateTime, 100);
   document.addEventListener('fullscreenchange', handleFullscreenChange);
   
-  // 添加键盘事件监听
-  document.addEventListener('keydown', handleKeydown);
-  
-  // 初始化视频属性
-  if (videoRef.value) {
-    videoRef.value.volume = volume.value;
-    videoRef.value.playbackRate = playbackRate.value;
-  }
+  nextTick(() => {
+    if (videoRef.value) {
+      console.log('初始化视频元素');
+      videoRef.value.volume = volume.value;
+      videoRef.value.playbackRate = playbackRate.value;
+    }
+  });
 });
 
 onUnmounted(() => {
+  console.log('=== VideoPlayer组件卸载 ===');
   if (timeUpdateInterval !== null) {
     clearInterval(timeUpdateInterval);
   }
-  
   if (hideControlsTimer) {
     clearTimeout(hideControlsTimer);
   }
-  
-  // 移除事件监听
   document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  document.removeEventListener('keydown', handleKeydown);
 });
+
+// 开发环境调试器（仅保留基本功能）
+if (import.meta.env.DEV) {
+  (window as any).debugVideoPlayer = {
+    debugLoad: debugLoad,
+    videoRef: videoRef,
+    videoSrc: videoSrc,
+    videoStore: videoStore
+  };
+}
 </script>
 
 <template>
@@ -278,11 +411,20 @@ onUnmounted(() => {
         <video
           ref="videoRef"
           :src="videoSrc"
+          preload="metadata"
+          controls="false"
+          playsinline
+          webkit-playsinline
+          x-webkit-airplay="deny"
           @play="handlePlayStateChange"
           @pause="handlePlayStateChange"
           @timeupdate="updateTime"
-          @click="togglePlay"
-          @loadedmetadata="showControlsBar"
+          @loadedmetadata="handleLoadedMetadata"
+          @loadeddata="handleLoadedData" 
+          @canplay="handleCanPlay"
+          @error="handleVideoError"
+          @loadstart="handleLoadStart"
+          @progress="handleProgress"
         ></video>
         
         <!-- 字幕显示区域 -->
@@ -295,29 +437,25 @@ onUnmounted(() => {
         <!-- 加载状态 -->
         <div v-if="isLoading" class="loading-overlay">
           <el-icon class="loading-icon"><Loading /></el-icon>
+          <p class="loading-text">正在加载视频...</p>
+        </div>
+        
+        <!-- 错误状态 -->
+        <div v-if="videoLoadError" class="error-overlay">
+          <div class="error-text">
+            <h3>视频加载失败</h3>
+            <p>{{ videoLoadError }}</p>
+            <el-button @click="debugLoad" type="primary">重试</el-button>
+          </div>
         </div>
         
         <!-- 播放/暂停按钮 -->
         <div class="play-overlay" @click="togglePlay">
           <el-icon v-if="!isPlaying" class="play-icon"><VideoPlay /></el-icon>
         </div>
-      </div>
-      
-      <!-- 控制栏 -->
-      <div class="controls" :class="{ 'controls-hidden': !showControls }">
-        <!-- 主要控制区域 -->
-        <div class="main-controls">
-          <!-- 播放/暂停按钮 -->
-          <el-button type="primary" size="small" @click="togglePlay">
-            <el-icon v-if="isPlaying"><VideoPause /></el-icon>
-            <el-icon v-else><VideoPlay /></el-icon>
-          </el-button>
-          
-          <!-- 时间显示 -->
-          <div class="time-display">
-            {{ videoStore.formattedCurrentTime }} / {{ videoStore.formattedDuration }}
-          </div>
-          
+        
+        <!-- 集成的进度条和控制器 -->
+        <div class="integrated-controls" :class="{ 'controls-hidden': !showControls }">
           <!-- 进度条 -->
           <el-slider
             v-model="videoStore.currentTime"
@@ -325,47 +463,58 @@ onUnmounted(() => {
             :max="videoStore.currentVideo?.duration || 0"
             :step="0.1"
             @change="seekTo"
-            class="time-slider"
+            class="integrated-progress-bar"
           />
-        </div>
-        
-        <!-- 次要控制区域 -->
-        <div class="secondary-controls">
-          <!-- 音量控制 -->
-          <div class="volume-control">
-            <el-button size="small" @click="toggleMute">
-              <el-icon v-if="isMuted || volume === 0"><Mute /></el-icon>
-              <el-icon v-else><Microphone /></el-icon>
+          
+          <!-- 控制按钮组 -->
+          <div class="control-buttons">
+            <!-- 播放/暂停按钮 -->
+            <el-button type="primary" size="small" @click="togglePlay">
+              <el-icon v-if="isPlaying"><VideoPause /></el-icon>
+              <el-icon v-else><VideoPlay /></el-icon>
             </el-button>
-            <el-slider
-              v-model="volume"
-              :min="0"
-              :max="1"
-              :step="0.01"
-              @change="setVolume"
-              class="volume-slider"
-            />
+            
+            <!-- 时间显示 -->
+            <div class="time-display">
+              {{ videoStore.formattedCurrentTime }} / {{ videoStore.formattedDuration }}
+            </div>
+            
+            <!-- 音量控制 -->
+            <div class="volume-control">
+              <el-button size="small" @click="toggleMute">
+                <el-icon v-if="isMuted || volume === 0"><Mute /></el-icon>
+                <el-icon v-else><Microphone /></el-icon>
+              </el-button>
+              <el-slider
+                v-model="volume"
+                :min="0"
+                :max="1"
+                :step="0.01"
+                @change="setVolume"
+                class="volume-slider"
+              />
+            </div>
+            
+            <!-- 播放速度 -->
+            <el-select
+              v-model="playbackRate"
+              @change="setPlaybackRate"
+              size="small"
+              class="speed-select"
+            >
+              <el-option label="0.5x" :value="0.5" />
+              <el-option label="0.75x" :value="0.75" />
+              <el-option label="1x" :value="1" />
+              <el-option label="1.25x" :value="1.25" />
+              <el-option label="1.5x" :value="1.5" />
+              <el-option label="2x" :value="2" />
+            </el-select>
+            
+            <!-- 全屏按钮 -->
+            <el-button size="small" @click="toggleFullscreen">
+              <el-icon><FullScreen /></el-icon>
+            </el-button>
           </div>
-          
-          <!-- 播放速度 -->
-          <el-select
-            v-model="playbackRate"
-            @change="setPlaybackRate"
-            size="small"
-            class="speed-select"
-          >
-            <el-option label="0.5x" :value="0.5" />
-            <el-option label="0.75x" :value="0.75" />
-            <el-option label="1x" :value="1" />
-            <el-option label="1.25x" :value="1.25" />
-            <el-option label="1.5x" :value="1.5" />
-            <el-option label="2x" :value="2" />
-          </el-select>
-          
-          <!-- 全屏按钮 -->
-          <el-button size="small" @click="toggleFullscreen">
-            <el-icon><FullScreen /></el-icon>
-          </el-button>
         </div>
       </div>
     </div>
@@ -375,9 +524,11 @@ onUnmounted(() => {
 <style scoped>
 .video-player {
   width: 100%;
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  background-color: #f5f5f5;
+  min-height: 0;
 }
 
 .no-video {
@@ -410,7 +561,7 @@ onUnmounted(() => {
 
 .subtitle-overlay {
   position: absolute;
-  bottom: 60px;
+  bottom: 100px;
   left: 0;
   right: 0;
   display: flex;
@@ -422,15 +573,11 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.8);
   color: white;
   padding: 12px 20px;
-
+  border-radius: 4px;
   max-width: 80%;
   text-align: center;
   font-size: 18px;
   font-weight: 500;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-
-  line-height: 1.4;
 }
 
 .loading-overlay {
@@ -440,17 +587,24 @@ onUnmounted(() => {
   right: 0;
   bottom: 0;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.7);
 }
 
 .loading-icon {
   font-size: 48px;
   color: white;
+  margin-bottom: 10px;
 }
 
-.play-overlay {
+.loading-text {
+  color: white;
+  font-size: 16px;
+}
+
+.error-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -459,7 +613,31 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.error-text {
+  text-align: center;
+  color: white;
+  padding: 20px;
+}
+
+.error-text h3 {
+  color: #ff6b6b;
+  margin-bottom: 10px;
+}
+
+.play-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .play-icon {
@@ -467,69 +645,70 @@ onUnmounted(() => {
   color: white;
   opacity: 0.9;
   background: rgba(0, 0, 0, 0.3);
-
+  border-radius: 50%;
   padding: 20px;
-  backdrop-filter: blur(5px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
+  transition: all 0.3s ease;
 }
 
 .play-icon:hover {
   opacity: 1;
   transform: scale(1.1);
   background: rgba(0, 0, 0, 0.4);
-
 }
 
-.controls {
+.integrated-controls {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(10px);
-  padding: 20px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+  padding: 10px 20px 20px;
+  transition: all 0.3s ease;
   opacity: 1;
-  transform: translateY(0);
-
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .controls-hidden {
-  opacity: 0;
-  transform: translateY(100%);
-  pointer-events: none;
+  opacity: 0.3;
 }
 
-.main-controls {
+.integrated-progress-bar {
+  margin-bottom: 15px;
+}
+
+.integrated-progress-bar :deep(.el-slider__runway) {
+  background-color: rgba(255, 255, 255, 0.3);
+  height: 4px;
+}
+
+.integrated-progress-bar :deep(.el-slider__bar) {
+  background-color: #409eff;
+  height: 4px;
+}
+
+.integrated-progress-bar :deep(.el-slider__button) {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #409eff;
+  background-color: white;
+}
+
+.control-buttons {
   display: flex;
   align-items: center;
-  gap: 20px;
-  flex: 1;
+  justify-content: space-between;
+  gap: 15px;
 }
-
-.secondary-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-
 
 .time-display {
-  margin: 0 20px;
-  font-size: 14px;
+  margin: 0 10px;
+  font-size: 12px;
   color: white;
-  font-size: 14px;
   font-weight: 500;
-}
-
-.time-slider {
-  flex: 1;
-  margin-right: 20px;
+  white-space: nowrap;
+  min-width: 100px;
+  text-align: center;
 }
 
 .volume-control {
@@ -538,14 +717,7 @@ onUnmounted(() => {
   gap: 10px;
   background: rgba(255, 255, 255, 0.1);
   padding: 8px 12px;
-
-  border-radius: 0;
-  backdrop-filter: blur(5px);
-  transition: all 0.3s ease;
-}
-
-.volume-control:hover {
-  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
 }
 
 .volume-slider {
@@ -556,18 +728,11 @@ onUnmounted(() => {
   width: 90px;
 }
 
-:deep(.el-slider__runway) {
-  margin: 0;
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 0;
-}
-
-/* 扁平化按钮样式 */
 :deep(.el-button) {
   background: #0fdc78;
   border: 2px solid #0fdc78;
   color: #000000;
-  border-radius: 0;
+  border-radius: 4px;
   padding: 12px 16px;
   font-weight: 600;
 }
@@ -578,91 +743,19 @@ onUnmounted(() => {
   color: #0fdc78;
 }
 
-:deep(.el-button:active) {
-  background: #0fdc78;
-  color: #000000;
-}
-
-/* 扁平化选择器样式 */
 :deep(.el-select .el-input__wrapper) {
   background: #0fdc78;
   border: 2px solid #0fdc78;
   color: #000000;
-  border-radius: 0;
+  border-radius: 4px;
 }
 
-:deep(.el-select .el-input__wrapper:hover) {
-  background: #000000;
-  border-color: #000000;
-  color: #0fdc78;
-}
-
-:deep(.el-input__inner) {
-  color: inherit;
-}
-
-/* 扁平化滑块样式 */
 :deep(.el-slider__bar) {
   background: #0fdc78;
-  border-radius: 0;
 }
 
 :deep(.el-slider__button) {
   border: 2px solid #0fdc78;
   background: #ffffff;
-  border-radius: 0;
-}
-
-:deep(.el-slider__button:hover) {
-  border-color: #000000;
-  background: #0fdc78;
-}
-
-/* 全屏模式样式 */
-.player-container:fullscreen {
-  background: black;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.player-container:fullscreen .video-container {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-}
-
-.player-container:fullscreen video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .controls {
-    padding: 10px 15px;
-  }
-  
-  .main-controls {
-    gap: 10px;
-  }
-  
-  .secondary-controls {
-    gap: 8px;
-  }
-  
-  .volume-control {
-    display: none; /* 在小屏幕上隐藏音量控制 */
-  }
-  
-  .speed-select {
-    width: 60px;
-  }
-  
-  .time-display {
-    font-size: 12px;
-  }
 }
 </style>

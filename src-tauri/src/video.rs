@@ -7,19 +7,34 @@ use std::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VideoInfo {
+    #[serde(rename = "filePath")]
     pub file_path: String,
+    #[serde(rename = "fileName")]
+    pub file_name: String,
     pub duration: f64,
+    pub resolution: Resolution,
+    #[serde(rename = "frameRate")]
+    pub frame_rate: f64,
+    #[serde(rename = "codecInfo")]
+    pub codec_info: String,
+    #[serde(rename = "audioTracks")]
+    pub audio_tracks: Vec<AudioTrack>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Resolution {
     pub width: i32,
     pub height: i32,
-    pub audio_tracks: Vec<AudioTrack>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AudioTrack {
     pub id: u32,
     pub language: Option<String>,
-    pub codec: String,
+    #[serde(rename = "codecInfo")]
+    pub codec_info: String,
     pub channels: u32,
+    #[serde(rename = "sampleRate")]
     pub sample_rate: u32,
 }
 
@@ -31,9 +46,20 @@ pub struct Subtitle {
     pub text: String,
 }
 
-/// 获取视频文件信息
+/// 获取视频文件信息#[tauri::command]
 pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
     use serde_json::Value;
+    
+    println!("[DEBUG] 开始获取视频信息: {}", file_path);
+    
+    // 检查文件是否存在
+    if !std::path::Path::new(file_path).exists() {
+        let error_msg = format!("文件不存在: {}", file_path);
+        println!("[ERROR] {}", error_msg);
+        return Err(error_msg);
+    }
+    
+    println!("[DEBUG] 文件存在，开始执行ffprobe");
     
     // 使用ffprobe获取视频信息
     let output = Command::new("ffprobe")
@@ -48,11 +74,16 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
         .map_err(|e| format!("执行ffprobe失败: {}", e))?;
 
     if !output.status.success() {
-        return Err(format!("ffprobe执行失败: {}", String::from_utf8_lossy(&output.stderr)));
+        let error_msg = format!("ffprobe执行失败: {}", String::from_utf8_lossy(&output.stderr));
+        println!("[ERROR] {}", error_msg);
+        return Err(error_msg);
     }
+
+    println!("[DEBUG] ffprobe执行成功，开始解析输出");
 
     // 解析JSON输出
     let json_str = String::from_utf8_lossy(&output.stdout);
+    println!("[DEBUG] ffprobe输出长度: {} 字符", json_str.len());
     let json: Value = serde_json::from_str(&json_str)
         .map_err(|e| format!("解析ffprobe输出失败: {}", e))?;
 
@@ -70,6 +101,8 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
 
     let mut width = 0;
     let mut height = 0;
+    let mut frame_rate = 0.0;
+    let mut codec_info = String::new();
     let mut audio_tracks = Vec::new();
 
     for (index, stream) in streams.iter().enumerate() {
@@ -78,11 +111,25 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
         if codec_type == "video" && width == 0 && height == 0 {
             width = stream["width"].as_i64().unwrap_or(0) as i32;
             height = stream["height"].as_i64().unwrap_or(0) as i32;
+            
+            // 获取帧率
+            if let Some(r_frame_rate) = stream["r_frame_rate"].as_str() {
+                if let Some((num, den)) = r_frame_rate.split_once('/') {
+                    if let (Ok(n), Ok(d)) = (num.parse::<f64>(), den.parse::<f64>()) {
+                        if d != 0.0 {
+                            frame_rate = n / d;
+                        }
+                    }
+                }
+            }
+            
+            // 获取编码信息
+            codec_info = stream["codec_name"].as_str().unwrap_or("unknown").to_string();
         } else if codec_type == "audio" {
             let track = AudioTrack {
                 id: index as u32,
                 language: stream["tags"]["language"].as_str().map(|s| s.to_string()),
-                codec: stream["codec_name"].as_str().unwrap_or("unknown").to_string(),
+                codec_info: stream["codec_name"].as_str().unwrap_or("unknown").to_string(),
                 channels: stream["channels"].as_i64().unwrap_or(2) as u32,
                 sample_rate: stream["sample_rate"].as_str()
                     .and_then(|s| s.parse::<u32>().ok())
@@ -97,19 +144,32 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
         audio_tracks.push(AudioTrack {
             id: 0,
             language: Some("und".to_string()),
-            codec: "unknown".to_string(),
+            codec_info: "unknown".to_string(),
             channels: 2,
             sample_rate: 44100,
         });
     }
 
-    Ok(VideoInfo {
+    // 从文件路径提取文件名
+    let file_name = std::path::Path::new(file_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    let video_info = VideoInfo {
         file_path: file_path.to_string(),
+        file_name: file_name.clone(),
         duration,
-        width,
-        height,
+        resolution: Resolution { width, height },
+        frame_rate,
+        codec_info: codec_info.clone(),
         audio_tracks,
-    })
+    };
+    
+    println!("[DEBUG] 视频信息获取成功: {} ({}x{}, {:.2}s)", file_name, width, height, duration);
+    
+    Ok(video_info)
 }
 
 /// 从视频中提取音频

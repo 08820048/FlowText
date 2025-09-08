@@ -3,6 +3,19 @@ import { open } from '@tauri-apps/plugin-dialog';
 import type { VideoInfo, Subtitle, SubtitleFormat } from '../types';
 
 /**
+ * 检查Tauri API是否可用
+ * 在Tauri v2中，我们检查window.__TAURI__对象和相关API
+ */
+function checkTauriAvailable(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  
+  // 检查是否在Tauri环境中
+  return '__TAURI__' in window || '__TAURI_INTERNALS__' in window;
+}
+
+/**
  * 打开文件选择对话框并选择视频文件
  * @returns 选择的视频文件路径，如果用户取消则返回null
  */
@@ -23,7 +36,7 @@ export async function selectVideoFile(): Promise<string | null> {
     return selected as string;
   } catch (error) {
     console.error('选择视频文件失败:', error);
-    return null;
+    throw new Error(`文件选择失败: ${error}`);
   }
 }
 
