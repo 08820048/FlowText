@@ -33,14 +33,9 @@ onMounted(() => {
 
 <template>
   <div class="main-layout">
-    <!-- 顶部标题栏 -->
+    <!-- 顶部工具栏 -->
     <div class="app-header">
-      <div class="app-title">
-        <h1>FlowText</h1>
-        <span class="app-subtitle">智能视频字幕提取工具</span>
-      </div>
-      
-      <!-- 右侧设置按钮 -->
+      <!-- 设置按钮 -->
       <div class="header-actions">
         <el-button 
           @click="toggleSettingsSidebar"
@@ -48,7 +43,6 @@ onMounted(() => {
           class="settings-btn"
         >
           <el-icon><Setting /></el-icon>
-          设置
         </el-button>
       </div>
     </div>
@@ -110,33 +104,14 @@ onMounted(() => {
 }
 
 .app-header {
-  background: #000000;
+  background: #2d3748;
   color: #ffffff;
-  padding: 16px 24px;
+  padding: 8px 16px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   border-bottom: 2px solid #0fdc78;
-}
-
-.app-title {
-  display: flex;
-  align-items: baseline;
-}
-
-.app-title h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #0fdc78;
-}
-
-.app-subtitle {
-  margin-left: 12px;
-  font-size: 14px;
-  color: #ffffff;
-  font-weight: 400;
+  min-height: 40px;
 }
 
 .header-actions {
@@ -153,12 +128,12 @@ onMounted(() => {
 
 .settings-btn:hover {
   background: #0fdc78 !important;
-  color: #000000 !important;
+  color: #2d3748 !important;
 }
 
 .settings-btn.el-button--primary {
   background: #0fdc78 !important;
-  color: #000000 !important;
+  color: #2d3748 !important;
 }
 
 .settings-btn.el-button--primary:hover {
@@ -222,7 +197,7 @@ onMounted(() => {
 }
 
 .sidebar-header {
-  background: #000000;
+  background: #2d3748;
   color: #ffffff;
   padding: 16px 20px;
   display: flex;
