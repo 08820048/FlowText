@@ -234,17 +234,21 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
       
       if (status.state === 'completed') {
         // 识别完成
-        recognitionStatus.value = 'completed';
         clearInterval(checkInterval);
-        
+
+        // 重置所有状态，允许开始新的识别任务
+        recognitionStatus.value = 'idle';
+        loading.value.recognize = false;
+        currentTaskId.value = null;
+
         // 设置字幕
         if (status.result && status.result.length > 0) {
           videoStore.setSubtitles(status.result);
-          
+
           // 完成进度任务
           ProgressMonitor.completeTask(progressTaskId, `识别完成，共生成${status.result.length}条字幕`);
           currentProgressTaskId.value = null;
-          
+
           ElMessage.success(`识别完成，共生成${status.result.length}条字幕`);
         } else {
           ProgressMonitor.completeTask(progressTaskId, '识别完成，但未生成字幕');
@@ -256,7 +260,11 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
         recognitionStatus.value = 'failed';
         errorMessage.value = status.error || '未知错误';
         clearInterval(checkInterval);
-        
+
+        // 重置加载状态和任务ID
+        loading.value.recognize = false;
+        currentTaskId.value = null;
+
         // 记录错误并失败进度任务
         const errorMsg = status.error || '未知错误';
         ErrorHandler.handle(
@@ -270,20 +278,24 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
             progressTaskId
           }
         );
-        
+
         ProgressMonitor.failTask(progressTaskId, errorMsg);
         currentProgressTaskId.value = null;
-        
+
         ElMessage.error(`识别失败: ${errorMsg}`);
       }
     } catch (error) {
       console.error('获取识别状态失败:', error);
       clearInterval(checkInterval);
       recognitionStatus.value = 'failed';
-      
+
+      // 重置加载状态和任务ID
+      loading.value.recognize = false;
+      currentTaskId.value = null;
+
       const errorMsg = `获取识别状态失败: ${error}`;
       errorMessage.value = errorMsg;
-      
+
       // 记录错误并失败进度任务
       ErrorHandler.handle(
         error instanceof Error ? error : new Error(String(error)),
@@ -296,7 +308,7 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
           progressTaskId
         }
       );
-      
+
       ProgressMonitor.failTask(progressTaskId, errorMsg);
       currentProgressTaskId.value = null;
       

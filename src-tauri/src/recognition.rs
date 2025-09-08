@@ -283,9 +283,23 @@ pub fn start_recognition(
                     Some(subtitles),
                     None,
                 );
+
+                // 延迟清理已完成的任务（给前端足够时间获取结果）
+                let cleanup_task_id = task_id_clone.clone();
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(30)).await; // 30秒后清理
+                    cleanup_completed_task(&cleanup_task_id);
+                });
             }
             Err(err) => {
                 update_task_status(&task_id_clone, "failed".to_string(), 0.0, None, Some(err));
+
+                // 延迟清理失败的任务
+                let cleanup_task_id = task_id_clone.clone();
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(30)).await; // 30秒后清理
+                    cleanup_completed_task(&cleanup_task_id);
+                });
             }
         }
     });
@@ -533,6 +547,24 @@ fn update_task_status(
                 result,
                 error,
             };
+        }
+    }
+}
+
+/// 清理已完成的任务
+fn cleanup_completed_task(task_id: &str) {
+    if let Ok(mut tasks) = RECOGNITION_TASKS.lock() {
+        if let Some(task) = tasks.get(task_id) {
+            // 只清理已完成、失败或取消的任务
+            match task.status.state.as_str() {
+                "completed" | "failed" | "cancelled" => {
+                    println!("清理已完成的任务: {}", task_id);
+                    tasks.remove(task_id);
+                }
+                _ => {
+                    // 任务仍在进行中，不清理
+                }
+            }
         }
     }
 }
