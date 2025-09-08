@@ -91,5 +91,4 @@ export interface AppSettings {
   maxConcurrentTasks: number;
   autoSave: boolean;
   autoSaveInterval: number; // 秒
-  theme: 'light' | 'dark' | 'system';
 }

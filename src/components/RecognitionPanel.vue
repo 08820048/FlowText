@@ -437,8 +437,8 @@ async function cancelRecognitionProcess() {
 .recognition-status {
   margin-top: 20px;
   padding: 16px;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border: 2px solid #0fdc78;
+  border-radius: 0;
 }
 
 .status-header {

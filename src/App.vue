@@ -7,14 +7,15 @@ import MainLayout from "./components/MainLayout.vue";
 </template>
 
 <style>
+/* 扁平化全局样式 */
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   line-height: 24px;
   font-weight: 400;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+  color: #000000;
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -40,7 +41,7 @@ import MainLayout from "./components/MainLayout.vue";
 }
 
 .logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
+  /* 扁平化设计 - 移除阴影效果 */
 }
 
 .row {
@@ -62,30 +63,34 @@ h1 {
   text-align: center;
 }
 
+/* 扁平化输入框和按钮样式 */
 input,
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
+  border: 2px solid #0fdc78;
+  border-radius: 0;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  color: #0f0f0f;
+  color: #000000;
   background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
 }
 
 button {
   cursor: pointer;
+  background-color: #0fdc78;
+  color: #000000;
 }
 
 button:hover {
-  border-color: #396cd8;
+  background-color: #000000;
+  border-color: #000000;
+  color: #0fdc78;
 }
+
 button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+  background-color: #0fdc78;
+  color: #000000;
 }
 
 input,
@@ -97,24 +102,6 @@ button {
   margin-right: 5px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
-}
+/* 深色主题样式已移除，仅支持浅色主题 */
 
 </style>

@@ -474,8 +474,8 @@ async function confirmExportSubtitles() {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 12px;
+  background: #f8fafc;
+
 }
 
 .editor-header {
@@ -485,8 +485,8 @@ async function confirmExportSubtitles() {
   margin-bottom: 20px;
   padding: 16px 20px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  
   border: 1px solid rgba(99, 102, 241, 0.1);
 }
 
@@ -494,7 +494,7 @@ async function confirmExportSubtitles() {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #667eea;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -510,8 +510,7 @@ async function confirmExportSubtitles() {
   flex: 1;
   overflow: hidden;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
   border: 1px solid rgba(99, 102, 241, 0.1);
 }
 
@@ -528,12 +527,12 @@ async function confirmExportSubtitles() {
   grid-template-columns: 200px 1fr 200px;
   gap: 16px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #667eea;
   color: white;
-  border-radius: 10px;
+
   font-weight: 600;
   margin-bottom: 12px;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  
 }
 
 .subtitle-item {
@@ -542,7 +541,6 @@ async function confirmExportSubtitles() {
   gap: 16px;
   padding: 16px 20px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
   margin-bottom: 12px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background: white;
@@ -557,16 +555,16 @@ async function confirmExportSubtitles() {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: #667eea;
   transform: scaleX(0);
   transition: transform 0.3s ease;
 }
 
 .subtitle-item:hover {
   border-color: #c6e2ff;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  background: #f0f9ff;
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  
 }
 
 .subtitle-item:hover::before {
@@ -575,8 +573,8 @@ async function confirmExportSubtitles() {
 
 .subtitle-item.active {
   border-color: #667eea;
-  background: linear-gradient(135deg, #ecf5ff 0%, #dbeafe 100%);
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+  background: #ecf5ff;
+  
 }
 
 .subtitle-item.active::before {
@@ -593,9 +591,9 @@ async function confirmExportSubtitles() {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 12px;
   color: #475569;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background: #f1f5f9;
   padding: 8px 12px;
-  border-radius: 8px;
+
   text-align: center;
   border: 1px solid #e2e8f0;
   font-weight: 500;
@@ -655,10 +653,8 @@ async function confirmExportSubtitles() {
   text-align: center;
   color: #64748b;
   background: white;
-  border-radius: 12px;
   margin: 16px;
   padding: 40px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .empty-state p {
@@ -700,7 +696,7 @@ async function confirmExportSubtitles() {
   }
 }
 
-/* 滚动条样式 */
+/* 扁平化滚动条样式 */
 .subtitle-list {
   overflow-y: auto;
 }
@@ -710,72 +706,90 @@ async function confirmExportSubtitles() {
 }
 
 .subtitle-list::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 6px;
-  margin: 4px;
+  background: #ffffff;
 }
 
 .subtitle-list::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
-  border-radius: 6px;
-  border: 2px solid #f1f5f9;
+  background: #0fdc78;
 }
 
 .subtitle-list::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  background: #000000;
 }
 
-/* 深度选择器优化Element Plus组件样式 */
+/* 扁平化Element Plus组件样式 */
 :deep(.el-button) {
-  border-radius: 8px;
+  border-radius: 0;
   font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid #0fdc78;
 }
 
 :deep(.el-button--primary) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #0fdc78;
+  border-color: #0fdc78;
+  color: #000000;
+}
+
+:deep(.el-button--primary:hover) {
+  background: #000000;
+  border-color: #000000;
+  color: #0fdc78;
+}
+
+:deep(.el-button:not(.el-button--primary)) {
+  background: #ffffff;
+  color: #000000;
+}
+
+:deep(.el-button:not(.el-button--primary):hover) {
+  background: #0fdc78;
+  color: #000000;
+}
+
+:deep(.el-button--primary-old) {
+  background: #667eea;
   border: none;
 }
 
 :deep(.el-button--primary:hover) {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  background: #5a67d8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  border-radius: 0;
 }
 
 :deep(.el-button--danger) {
-  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  background: #f56565;
   border: none;
   color: white;
 }
 
 :deep(.el-button--danger:hover) {
-  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  background: #e53e3e;
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(245, 101, 101, 0.4);
+  border-radius: 0;
 }
 
 :deep(.el-input__wrapper) {
-  border-radius: 8px;
   transition: all 0.3s ease;
+  border-radius: 0;
 }
 
 :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  border-radius: 0;
 }
 
 :deep(.el-textarea__inner) {
-  border-radius: 8px;
   transition: all 0.3s ease;
+  border-radius: 0;
 }
 
 :deep(.el-dialog) {
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 :deep(.el-dialog__header) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #000000;
   color: white;
   padding: 20px;
 }

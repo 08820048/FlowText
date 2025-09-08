@@ -318,17 +318,18 @@ function clearErrors() {
 </script>
 
 <style scoped>
+/* 扁平化任务状态栏样式 */
 .task-status-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: #f5f7fa;
-  border-top: 1px solid #e4e7ed;
-  padding: 8px 16px;
+  background: #000000;
+  border-top: 2px solid #0fdc78;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   z-index: 1000;
   max-height: 120px;
   overflow-y: auto;
@@ -345,10 +346,9 @@ function clearErrors() {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 8px;
-  background: white;
-  border-radius: 4px;
-  border: 1px solid #e4e7ed;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 2px solid #0fdc78;
 }
 
 .task-info {
@@ -359,19 +359,19 @@ function clearErrors() {
 }
 
 .task-name {
-  font-weight: 500;
-  color: #303133;
+  font-weight: 600;
+  color: #000000;
 }
 
 .task-progress {
   font-size: 12px;
-  color: #409eff;
-  font-weight: 500;
+  color: #0fdc78;
+  font-weight: 600;
 }
 
 .task-message {
   font-size: 12px;
-  color: #909399;
+  color: #666666;
 }
 
 .task-progress-bar {
@@ -381,8 +381,9 @@ function clearErrors() {
 
 .time-remaining {
   font-size: 12px;
-  color: #909399;
+  color: #0fdc78;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .error-section {
@@ -396,13 +397,13 @@ function clearErrors() {
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
+
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(245, 108, 108, 0);
+
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0);
+
   }
 }
 
@@ -418,10 +419,10 @@ function clearErrors() {
 }
 
 .task-detail-item {
-  padding: 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  margin-bottom: 12px;
+  padding: 20px;
+  border: 2px solid #0fdc78;
+  margin-bottom: 16px;
+  background: #ffffff;
 }
 
 .task-header {
@@ -445,10 +446,11 @@ function clearErrors() {
 
 .task-message {
   margin: 8px 0;
-  padding: 8px;
-  background: #f5f7fa;
-  border-radius: 4px;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 2px solid #0fdc78;
   font-size: 14px;
+  color: #000000;
 }
 
 .task-error {
@@ -460,7 +462,8 @@ function clearErrors() {
   gap: 16px;
   margin-top: 8px;
   font-size: 12px;
-  color: #909399;
+  color: #666666;
+  font-weight: 500;
 }
 
 .error-dialog-content {
@@ -469,10 +472,10 @@ function clearErrors() {
 }
 
 .error-item {
-  padding: 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  margin-bottom: 12px;
+  padding: 20px;
+  border: 2px solid #0fdc78;
+  margin-bottom: 16px;
+  background: #ffffff;
 }
 
 .error-header {
@@ -484,13 +487,15 @@ function clearErrors() {
 
 .error-time {
   font-size: 12px;
-  color: #909399;
+  color: #666666;
+  font-weight: 500;
 }
 
 .error-message {
   margin: 8px 0;
   font-size: 14px;
-  color: #303133;
+  color: #000000;
+  font-weight: 500;
 }
 
 .error-details,
@@ -500,10 +505,11 @@ function clearErrors() {
 
 .error-details pre,
 .error-context pre {
-  background: #f5f7fa;
-  padding: 8px;
-  border-radius: 4px;
+  background: #f8f9fa;
+  padding: 12px;
+  border: 2px solid #0fdc78;
   font-size: 12px;
   overflow-x: auto;
+  color: #000000;
 }
 </style>

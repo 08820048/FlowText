@@ -419,17 +419,17 @@ onUnmounted(() => {
 }
 
 .subtitle-text {
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+  background: rgba(0, 0, 0, 0.8);
   color: white;
   padding: 12px 20px;
-  border-radius: 12px;
+
   max-width: 80%;
   text-align: center;
   font-size: 18px;
   font-weight: 500;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+
   line-height: 1.4;
 }
 
@@ -467,18 +467,18 @@ onUnmounted(() => {
   color: white;
   opacity: 0.9;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 50%;
+
   padding: 20px;
   backdrop-filter: blur(5px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
 }
 
 .play-icon:hover {
   opacity: 1;
   transform: scale(1.1);
   background: rgba(0, 0, 0, 0.4);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+
 }
 
 .controls {
@@ -486,7 +486,7 @@ onUnmounted(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+  background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(10px);
   padding: 20px 24px;
   display: flex;
@@ -495,7 +495,7 @@ onUnmounted(() => {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 1;
   transform: translateY(0);
-  border-radius: 12px 12px 0 0;
+
 }
 
 .controls-hidden {
@@ -523,9 +523,8 @@ onUnmounted(() => {
   margin: 0 20px;
   font-size: 14px;
   color: white;
-  white-space: nowrap;
+  font-size: 14px;
   font-weight: 500;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .time-slider {
@@ -539,7 +538,8 @@ onUnmounted(() => {
   gap: 10px;
   background: rgba(255, 255, 255, 0.1);
   padding: 8px 12px;
-  border-radius: 20px;
+
+  border-radius: 0;
   backdrop-filter: blur(5px);
   transition: all 0.3s ease;
 }
@@ -559,61 +559,63 @@ onUnmounted(() => {
 :deep(.el-slider__runway) {
   margin: 0;
   background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  border-radius: 0;
 }
 
+/* 扁平化按钮样式 */
 :deep(.el-button) {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  border-radius: 12px;
-  padding: 10px 16px;
-  font-weight: 500;
-  backdrop-filter: blur(5px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #0fdc78;
+  border: 2px solid #0fdc78;
+  color: #000000;
+  border-radius: 0;
+  padding: 12px 16px;
+  font-weight: 600;
 }
 
 :deep(.el-button:hover) {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15));
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #000000;
+  border-color: #000000;
+  color: #0fdc78;
 }
 
 :deep(.el-button:active) {
-  transform: translateY(0);
+  background: #0fdc78;
+  color: #000000;
 }
 
+/* 扁平化选择器样式 */
 :deep(.el-select .el-input__wrapper) {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  border-radius: 12px;
-  backdrop-filter: blur(5px);
-  transition: all 0.3s ease;
+  background: #0fdc78;
+  border: 2px solid #0fdc78;
+  color: #000000;
+  border-radius: 0;
 }
 
 :deep(.el-select .el-input__wrapper:hover) {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15));
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #000000;
+  border-color: #000000;
+  color: #0fdc78;
 }
 
+:deep(.el-input__inner) {
+  color: inherit;
+}
+
+/* 扁平化滑块样式 */
 :deep(.el-slider__bar) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 4px;
+  background: #0fdc78;
+  border-radius: 0;
 }
 
 :deep(.el-slider__button) {
-  border: 2px solid #667eea;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  border: 2px solid #0fdc78;
+  background: #ffffff;
+  border-radius: 0;
 }
 
 :deep(.el-slider__button:hover) {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: #000000;
+  background: #0fdc78;
 }
 
 /* 全屏模式样式 */

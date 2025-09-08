@@ -33,8 +33,7 @@ const apiKeys = ref({
   }
 });
 
-// 当前主题
-const currentTheme = ref(themeManager.getCurrentTheme());
+// 主题切换功能已移除
 
 // 当前默认引擎
 const defaultEngine = ref(settingsStore.settings.defaultEngine);
@@ -132,14 +131,7 @@ async function validateApiKey(engine: RecognitionEngine) {
   });
 }
 
-/**
- * 更新主题
- */
-function updateTheme() {
-  themeManager.setTheme(currentTheme.value);
-  settingsStore.setTheme(currentTheme.value);
-  ElMessage.success('主题已更新');
-}
+// 主题更新方法已移除
 
 /**
  * 更新默认引擎
@@ -185,7 +177,6 @@ function resetAllSettings() {
   settingsStore.resetSettings();
   
   // 更新本地状态
-  currentTheme.value = settingsStore.settings.theme;
   defaultEngine.value = settingsStore.settings.defaultEngine;
   defaultLanguage.value = settingsStore.settings.defaultLanguage;
   defaultSubtitleFormat.value = settingsStore.settings.defaultSubtitleFormat;
@@ -216,37 +207,12 @@ function resetAllSettings() {
 
 <template>
   <div class="settings-panel">
-    <div class="panel-header">
-      <h3>应用设置</h3>
-    </div>
-    
     <div class="settings-content">
       <el-tabs>
         <!-- 通用设置 -->
         <el-tab-pane label="通用设置">
           <el-form label-width="140px">
-            <el-form-item label="主题">
-              <el-radio-group v-model="currentTheme" @change="updateTheme">
-                <el-radio-button label="light">浅色</el-radio-button>
-                <el-radio-button label="dark">深色</el-radio-button>
-              </el-radio-group>
-              <div class="theme-preview" style="margin-top: 12px;">
-                <div class="theme-card light" :class="{ active: currentTheme === 'light' }" @click="currentTheme = 'light'; updateTheme()">
-                  <div class="theme-header"></div>
-                  <div class="theme-content">
-                    <div class="theme-sidebar"></div>
-                    <div class="theme-main"></div>
-                  </div>
-                </div>
-                <div class="theme-card dark" :class="{ active: currentTheme === 'dark' }" @click="currentTheme = 'dark'; updateTheme()">
-                  <div class="theme-header"></div>
-                  <div class="theme-content">
-                    <div class="theme-sidebar"></div>
-                    <div class="theme-main"></div>
-                  </div>
-                </div>
-              </div>
-            </el-form-item>
+            <!-- 主题切换功能已移除，默认使用白色主题 -->
             
             <el-form-item label="默认识别引擎">
               <el-select v-model="defaultEngine" @change="updateDefaultEngine" style="width: 200px">
@@ -311,7 +277,7 @@ function resetAllSettings() {
           <el-tabs tab-position="left">
             <!-- 百度智能云 -->
             <el-tab-pane label="百度智能云">
-              <el-form label-width="120px">
+              <el-form label-width="100px">
                 <el-form-item label="App ID">
                   <el-input v-model="apiKeys.baidu.appId" placeholder="请输入百度智能云App ID" />
                 </el-form-item>
@@ -341,7 +307,7 @@ function resetAllSettings() {
             
             <!-- 腾讯云 -->
             <el-tab-pane label="腾讯云">
-              <el-form label-width="120px">
+              <el-form label-width="100px">
                 <el-form-item label="Secret ID">
                   <el-input v-model="apiKeys.tencent.secretId" placeholder="请输入腾讯云Secret ID" />
                 </el-form-item>
@@ -367,7 +333,7 @@ function resetAllSettings() {
             
             <!-- 阿里云 -->
             <el-tab-pane label="阿里云">
-              <el-form label-width="140px">
+              <el-form label-width="120px">
                 <el-form-item label="Access Key ID">
                   <el-input v-model="apiKeys.aliyun.accessKeyId" placeholder="请输入阿里云Access Key ID" />
                 </el-form-item>
@@ -393,7 +359,7 @@ function resetAllSettings() {
             
             <!-- Whisper设置 -->
             <el-tab-pane label="Whisper设置">
-              <el-form label-width="120px">
+              <el-form label-width="100px">
                 <el-form-item label="模型大小">
                   <el-radio-group v-model="settingsStore.settings.whisperModel" @change="updateGeneralSettings">
                     <el-radio-button label="tiny">Tiny</el-radio-button>
@@ -444,45 +410,26 @@ function resetAllSettings() {
 </template>
 
 <style scoped>
+/* 扁平化设计样式 */
 .settings-panel {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 12px;
+  background: #f8fafc;
   padding: 20px;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(99, 102, 241, 0.1);
-  margin-bottom: 20px;
-}
-
-.panel-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  box-sizing: border-box;
 }
 
 .settings-content {
   flex: 1;
-  overflow: auto;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  background: #ffffff;
   border: 1px solid rgba(99, 102, 241, 0.1);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .setting-hint {
@@ -493,8 +440,6 @@ function resetAllSettings() {
 }
 
 .about-content {
-  max-width: 800px;
-  margin: 0 auto;
   padding: 24px;
   line-height: 1.6;
 }
@@ -523,14 +468,27 @@ function resetAllSettings() {
 
 /* 深度选择器优化Element Plus组件样式 */
 :deep(.el-tabs) {
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 左侧tabs特殊处理 - 覆盖默认的column布局 */
+:deep(.el-tabs--left) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex: 1;
 }
 
 :deep(.el-tabs__header) {
   margin: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px 12px 0 0;
-  padding: 0 20px;
+  background: #667eea;
+  padding: 0 16px;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 :deep(.el-tabs__nav-wrap) {
@@ -540,7 +498,7 @@ function resetAllSettings() {
 :deep(.el-tabs__item) {
   color: rgba(255, 255, 255, 0.8);
   font-weight: 500;
-  padding: 16px 20px;
+  padding: 12px 16px;
   border: none;
   transition: all 0.3s ease;
 }
@@ -552,27 +510,99 @@ function resetAllSettings() {
 :deep(.el-tabs__item.is-active) {
   color: white;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px 8px 0 0;
 }
 
 :deep(.el-tabs__active-bar) {
   background: white;
   height: 3px;
-  border-radius: 2px;
 }
 
 :deep(.el-tabs__content) {
-  padding: 24px;
-  height: calc(100% - 60px);
-  overflow-y: auto;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 :deep(.el-tab-pane) {
-  height: 100%;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 嵌套tabs的tab-pane样式 */
+:deep(.el-tabs--left .el-tab-pane) {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 :deep(.el-form-item) {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:deep(.el-form) {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:deep(.el-input) {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+:deep(.el-select) {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+:deep(.el-button) {
+  box-sizing: border-box;
+}
+
+/* 嵌套tabs样式优化 - 合并到上面的样式中 */
+
+:deep(.el-tabs--left .el-tabs__header) {
+  width: 140px;
+  margin-right: 0;
+  background: #f8fafc;
+  border-right: 2px solid #0fdc78;
+}
+
+:deep(.el-tabs--left .el-tabs__content) {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+:deep(.el-tabs--left .el-tabs__nav) {
+  width: 100%;
+}
+
+:deep(.el-tabs--left .el-tabs__item) {
+  text-align: left;
+  padding: 10px 12px;
+  color: #374151;
+  background: transparent;
+}
+
+:deep(.el-tabs--left .el-tabs__item:hover) {
+  background: rgba(15, 220, 120, 0.1);
+  color: #000000;
+}
+
+:deep(.el-tabs--left .el-tabs__item.is-active) {
+  background: #0fdc78;
+  color: #000000;
+  font-weight: 600;
 }
 
 :deep(.el-form-item__label) {
@@ -582,19 +612,19 @@ function resetAllSettings() {
 }
 
 :deep(.el-input__wrapper) {
-  border-radius: 8px;
+  border-radius: 0;
   transition: all 0.3s ease;
   border: 1px solid #e2e8f0;
 }
 
 :deep(.el-input__wrapper:hover) {
   border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  border-radius: 0;
 }
 
 :deep(.el-input__wrapper.is-focus) {
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-radius: 0;
 }
 
 :deep(.el-select .el-input__wrapper) {
@@ -610,24 +640,35 @@ function resetAllSettings() {
 }
 
 :deep(.el-input-number .el-input__wrapper) {
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 :deep(.el-button) {
-  border-radius: 8px;
+  border-radius: 0;
   font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid #0fdc78;
 }
 
 :deep(.el-button--primary) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
+  background: #0fdc78;
+  border-color: #0fdc78;
+  color: #000000;
 }
 
 :deep(.el-button--primary:hover) {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  background: #000000;
+  border-color: #000000;
+  color: #0fdc78;
+}
+
+:deep(.el-button:not(.el-button--primary)) {
+  background: #ffffff;
+  color: #000000;
+}
+
+:deep(.el-button:not(.el-button--primary):hover) {
+  background: #0fdc78;
+  color: #000000;
 }
 
 :deep(.el-divider) {
@@ -635,108 +676,22 @@ function resetAllSettings() {
   border-color: #e2e8f0;
 }
 
-/* 滚动条样式 */
+/* 扁平化滚动条样式 */
 .settings-content::-webkit-scrollbar {
   width: 8px;
 }
 
 .settings-content::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 6px;
-  margin: 4px;
-}
-
-.settings-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
-  border-radius: 6px;
-  border: 2px solid #f1f5f9;
-}
-
-.settings-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-}
-
-/* 主题预览样式 */
-.theme-preview {
-  display: flex;
-  gap: 16px;
-  margin-top: 12px;
-}
-
-.theme-card {
-  width: 120px;
-  height: 80px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  overflow: hidden;
-  position: relative;
-}
-
-.theme-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.theme-card.active {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-}
-
-.theme-card.light {
   background: #ffffff;
 }
 
-.theme-card.light .theme-header {
-  height: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.settings-content::-webkit-scrollbar-thumb {
+  background: #0fdc78;
 }
 
-.theme-card.light .theme-content {
-  display: flex;
-  height: 60px;
-  padding: 4px;
-  gap: 4px;
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background: #000000;
 }
 
-.theme-card.light .theme-sidebar {
-  width: 30%;
-  background: #f8fafc;
-  border-radius: 4px;
-}
-
-.theme-card.light .theme-main {
-  flex: 1;
-  background: #f1f5f9;
-  border-radius: 4px;
-}
-
-.theme-card.dark {
-  background: #334155;
-}
-
-.theme-card.dark .theme-header {
-  height: 20px;
-  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
-}
-
-.theme-card.dark .theme-content {
-  display: flex;
-  height: 60px;
-  padding: 4px;
-  gap: 4px;
-}
-
-.theme-card.dark .theme-sidebar {
-  width: 30%;
-  background: #475569;
-  border-radius: 4px;
-}
-
-.theme-card.dark .theme-main {
-  flex: 1;
-  background: #1e293b;
-  border-radius: 4px;
-}
+/* 主题预览样式已移除 */
 </style>

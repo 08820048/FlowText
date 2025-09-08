@@ -16,8 +16,7 @@ export const useSettingsStore = defineStore('settings', () => {
     useGPU: true,
     maxConcurrentTasks: 2,
     autoSave: true,
-    autoSaveInterval: 60,
-    theme: 'system'
+    autoSaveInterval: 60
   };
   
   // 当前应用设置
@@ -97,30 +96,7 @@ export const useSettingsStore = defineStore('settings', () => {
     saveSettings();
   }
   
-  /**
-   * 设置主题
-   * @param theme 主题模式
-   */
-  function setTheme(theme: 'light' | 'dark' | 'system') {
-    settings.value.theme = theme;
-    saveSettings();
-    applyTheme();
-  }
-  
-  /**
-   * 应用当前主题到文档
-   */
-  function applyTheme() {
-    const theme = settings.value.theme;
-    if (theme === 'system') {
-      // 跟随系统主题
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', prefersDark);
-    } else {
-      // 手动设置主题
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-    }
-  }
+  // 主题相关方法已移除
   
   /**
    * 重置设置为默认值
@@ -128,7 +104,6 @@ export const useSettingsStore = defineStore('settings', () => {
   function resetSettings() {
     settings.value = defaultSettings;
     saveSettings();
-    applyTheme();
   }
   
   return {
@@ -139,8 +114,6 @@ export const useSettingsStore = defineStore('settings', () => {
     setDefaultEngine,
     setDefaultLanguage,
     setDefaultSubtitleFormat,
-    setTheme,
-    applyTheme,
     resetSettings
   };
 });
