@@ -236,19 +236,23 @@ function resetAllSettings() {
             <el-divider />
 
             <el-form-item label="字幕导出路径">
-              <div class="export-path-setting">
-                <el-input
-                  v-model="exportPath"
-                  placeholder="默认路径（留空使用系统默认位置）"
-                  readonly
-                  style="flex: 1; margin-right: 8px;"
-                />
-                <el-button @click="selectExportFolder" size="small">选择文件夹</el-button>
-                <el-button @click="openExportFolder" size="small" :disabled="!exportPath" type="success">
-                  <el-icon><FolderOpened /></el-icon>
-                  打开
-                </el-button>
-                <el-button @click="resetExportPath" size="small" :disabled="!exportPath">重置</el-button>
+              <div class="export-path-container">
+                <div class="export-path-input-row">
+                  <el-input
+                    v-model="exportPath"
+                    :placeholder="exportPath ? '' : '默认路径（留空使用系统默认位置）'"
+                    readonly
+                    style="flex: 1; margin-right: 8px;"
+                  />
+                  <el-button @click="selectExportFolder" size="small">选择文件夹</el-button>
+                </div>
+                <div class="export-path-actions" v-if="exportPath">
+                  <el-button @click="openExportFolder" size="small" type="success">
+                    <el-icon><FolderOpened /></el-icon>
+                    打开
+                  </el-button>
+                  <el-button @click="resetExportPath" size="small">重置</el-button>
+                </div>
               </div>
               <div class="setting-hint">
                 设置字幕文件的默认导出位置，留空则使用应用程序目录
@@ -603,18 +607,33 @@ function resetAllSettings() {
 }
 
 /* 导出路径设置样式 */
-.export-path-setting {
+.export-path-container {
+  width: 100%;
+}
+
+.export-path-input-row {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
+  margin-bottom: 8px;
 }
 
-.export-path-setting .el-input {
+.export-path-input-row .el-input {
   flex: 1;
 }
 
-.export-path-setting .el-button {
+.export-path-input-row .el-button {
+  flex-shrink: 0;
+}
+
+.export-path-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.export-path-actions .el-button {
   flex-shrink: 0;
 }
 
