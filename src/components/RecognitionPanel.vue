@@ -61,6 +61,7 @@ const recognitionProgress = ref(0);
 const dynamicProgress = ref(0);
 const progressMessage = ref('');
 const isProgressAnimating = ref(false);
+const isDownloading = ref(false);
 let progressAnimationId: number | null = null;
 
 // 识别状态
@@ -294,6 +295,13 @@ function startProgressAnimation(targetProgress: number, message: string) {
   progressMessage.value = message;
   isProgressAnimating.value = true;
 
+  // 检查是否是下载相关的消息
+  if (message.includes('下载') || message.includes('首次使用')) {
+    isDownloading.value = true;
+  } else if (message.includes('下载完成') || message.includes('初始化')) {
+    isDownloading.value = false;
+  }
+
   // 清除之前的动画
   if (progressAnimationId) {
     cancelAnimationFrame(progressAnimationId);
@@ -332,6 +340,7 @@ function stopProgressAnimation() {
     progressAnimationId = null;
   }
   isProgressAnimating.value = false;
+  isDownloading.value = false; // 清理下载状态
   dynamicProgress.value = 0;
   progressMessage.value = '';
 }
@@ -349,6 +358,22 @@ function getModelStatus(engine: RecognitionEngine, size: string): string {
  */
 async function onModelSizeChange(newSize: string) {
   await checkModelSizeStatus(recognitionSettings.value.engine, newSize);
+}
+
+/**
+ * 获取模型大小信息
+ */
+function getModelSizeInfo(size: string) {
+  const sizeMap: Record<string, { fileSize: string; description: string }> = {
+    'tiny': { fileSize: '~39MB', description: '最小模型，速度最快' },
+    'base': { fileSize: '~74MB', description: '基础模型，平衡速度和精度' },
+    'small': { fileSize: '~244MB', description: '小型模型，较好精度' },
+    'medium': { fileSize: '~769MB', description: '中型模型，高精度' },
+    'large': { fileSize: '~1550MB', description: '大型模型，最高精度' },
+    'large-v2': { fileSize: '~1550MB', description: '大型模型v2，改进精度' },
+    'large-v3': { fileSize: '~1550MB', description: '最新大型模型，最佳精度' }
+  };
+  return sizeMap[size];
 }
 
 
@@ -627,8 +652,12 @@ async function startRecognitionProcess() {
   // 检查模型是否可用
   const modelStatus = getModelStatus(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
   if (modelStatus === 'not_available') {
-    ElMessage.error('所选模型未安装，请先安装相关模块');
-    return;
+    // 如果模型未下载，给用户提示但允许继续（会自动下载）
+    const modelSizeInfo = getModelSizeInfo(recognitionSettings.value.modelSize);
+    ElMessage.warning({
+      message: `首次使用 ${recognitionSettings.value.modelSize} 模型需要下载 (${modelSizeInfo?.fileSize || '未知大小'})，请耐心等待...`,
+      duration: 5000
+    });
   }
 
   try {
@@ -1200,11 +1229,28 @@ async function cancelRecognitionProcess() {
         </el-progress>
 
         <!-- 进度条下方的详细信息 -->
-        <div v-if="isProgressAnimating" class="progress-details">
+        <div v-if="isProgressAnimating || isDownloading" class="progress-details">
           <div class="progress-animation">
             <el-icon class="rotating"><Setting /></el-icon>
-            <span>处理中...</span>
+            <span v-if="isDownloading">正在下载模型，请稍候...</span>
+            <span v-else>处理中...</span>
           </div>
+        </div>
+
+        <!-- 下载提示 -->
+        <div v-if="isDownloading" class="download-notice">
+          <el-alert
+            title="首次使用提示"
+            type="info"
+            :closable="false"
+            show-icon
+          >
+            <template #default>
+              <p>首次使用该模型大小需要从网络下载模型文件</p>
+              <p>下载完成后会自动缓存，后续使用无需重复下载</p>
+              <p>请保持网络连接并耐心等待...</p>
+            </template>
+          </el-alert>
         </div>
 
         <div v-if="recognitionStatus === 'failed'" class="error-message">
@@ -1512,5 +1558,23 @@ async function cancelRecognitionProcess() {
   color: var(--el-color-error);
   border-radius: 4px;
   font-size: 14px;
+}
+
+.download-notice {
+  margin-top: 16px;
+}
+
+.download-notice .el-alert {
+  border-radius: 8px;
+}
+
+.download-notice .el-alert__content p {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.download-notice .el-alert__content p:first-child {
+  font-weight: 500;
 }
 </style>

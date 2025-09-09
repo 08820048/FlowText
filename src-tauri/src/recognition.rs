@@ -819,13 +819,31 @@ async fn call_faster_whisper_with_config(
         params.model_config
     );
 
-    update_task_status(
-        task_id,
-        "processing".to_string(),
-        0.1,
-        None,
-        Some("正在初始化模型...".to_string()),
-    );
+    // 首先检查模型是否已下载
+    let model_available =
+        check_model_size_available(&params.model_config.engine, &params.model_config.size)
+            .unwrap_or(false);
+
+    if !model_available {
+        update_task_status(
+            task_id,
+            "processing".to_string(),
+            0.05,
+            None,
+            Some(format!(
+                "正在下载 {} 模型 ({})，请稍候...",
+                params.model_config.engine, params.model_config.size
+            )),
+        );
+    } else {
+        update_task_status(
+            task_id,
+            "processing".to_string(),
+            0.1,
+            None,
+            Some("正在初始化模型...".to_string()),
+        );
+    }
 
     // 构建Python脚本来调用faster-whisper
     let python_script = format!(
@@ -849,12 +867,27 @@ except ImportError:
         print("警告: 未安装繁简转换库，将保持原始输出", file=sys.stderr)
 
 try:
-    # 初始化模型
+    # 检查模型是否需要下载
+    import os
+    from pathlib import Path
+
+    # 获取模型缓存路径
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    model_pattern = f"models--Systran--faster-whisper-{{model_size}}"
+    model_exists = any(cache_dir.glob(f"*{{model_pattern}}*")) if cache_dir.exists() else False
+
+    if not model_exists:
+        print("DOWNLOAD_START", file=sys.stderr)
+
+    # 初始化模型（如果需要会自动下载）
     model = WhisperModel(
         "{model_size}",
         device="{device}",
         compute_type="{compute_type}"
     )
+
+    if not model_exists:
+        print("DOWNLOAD_COMPLETE", file=sys.stderr)
 
     # 设置参数
     beam_size = {beam_size}
@@ -953,11 +986,49 @@ except Exception as e:
         Some("正在进行语音识别...".to_string()),
     );
 
-    // 执行Python脚本
-    let output = Command::new("python3")
+    // 执行Python脚本，监控下载进度
+    let mut child = Command::new("python3")
         .arg("-c")
         .arg(&python_script)
-        .output()
+        .stderr(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("启动faster-whisper失败: {}", e))?;
+
+    // 监控stderr输出以获取下载进度
+    if let Some(stderr) = child.stderr.take() {
+        use std::io::{BufRead, BufReader};
+        let reader = BufReader::new(stderr);
+        let task_id_owned = task_id.to_string(); // 转换为owned string
+
+        tokio::spawn(async move {
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    if line.contains("DOWNLOAD_START") {
+                        update_task_status(
+                            &task_id_owned,
+                            "processing".to_string(),
+                            0.1,
+                            None,
+                            Some("正在下载模型文件，首次使用需要一些时间...".to_string()),
+                        );
+                    } else if line.contains("DOWNLOAD_COMPLETE") {
+                        update_task_status(
+                            &task_id_owned,
+                            "processing".to_string(),
+                            0.15,
+                            None,
+                            Some("模型下载完成，开始初始化...".to_string()),
+                        );
+                    }
+                }
+            }
+        });
+    }
+
+    // 等待进程完成
+    let output = child
+        .wait_with_output()
         .map_err(|e| format!("执行faster-whisper失败: {}", e))?;
 
     if !output.status.success() {
