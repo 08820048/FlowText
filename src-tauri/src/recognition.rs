@@ -1126,17 +1126,25 @@ try:
                     # 情感和事件信息暂时跳过，避免格式问题
 
 except Exception as e:
-    print("Error: " + str(e), file=sys.stderr)
+    print(f"SenseVoice 识别错误: {{e}}", file=sys.stderr)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+
+    # 输出默认字幕以避免解析失败
+    print("1")
+    print("00:00:00.000 --> 00:00:03.000")
+    print(f"识别失败: {{str(e)}}")
+    print()
+
     sys.exit(1)
 "#,
         model_size = params.model_config.size,
         device = params.model_config.device,
         audio_path = params.audio_path,
-        language = if params.language == "zh" {
-            "zh"
-        } else {
-            &params.language
-        }
+        language = match params.language.as_str() {{
+            "zh-cn" | "zh-tw" | "zh" => "zh",
+            _ => &params.language,
+        }}
     );
 
     // 执行Python脚本
