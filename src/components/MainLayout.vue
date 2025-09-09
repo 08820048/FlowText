@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { Microphone, Edit, Setting, ArrowRight } from '@element-plus/icons-vue';
 import { useSettingsStore } from '../stores';
 import { themeManager } from '../utils/themeManager';
 import VideoImport from './VideoImport.vue';
@@ -14,6 +15,26 @@ const settingsStore = useSettingsStore();
 
 // 当前激活的面板
 const activePanel = ref('recognition');
+
+// 右侧面板是否展开
+const rightPanelExpanded = ref(true);
+
+// 切换右侧面板展开状态
+function toggleRightPanel(panelName?: string) {
+  if (panelName) {
+    if (activePanel.value === panelName && rightPanelExpanded.value) {
+      // 如果点击的是当前激活的面板且已展开，则收起
+      rightPanelExpanded.value = false;
+    } else {
+      // 否则切换到该面板并展开
+      activePanel.value = panelName;
+      rightPanelExpanded.value = true;
+    }
+  } else {
+    // 如果没有指定面板，则切换展开状态
+    rightPanelExpanded.value = !rightPanelExpanded.value;
+  }
+}
 
 // 初始化设置
 onMounted(() => {
@@ -41,19 +62,52 @@ onMounted(() => {
       
       <!-- 右侧面板 -->
       <div class="right-panel">
-        <el-tabs v-model="activePanel" class="right-tabs">
-          <el-tab-pane label="语音识别" name="recognition">
-            <RecognitionPanel />
-          </el-tab-pane>
-          
-          <el-tab-pane label="字幕编辑" name="subtitle">
-            <SubtitleEditor />
-          </el-tab-pane>
-          
-          <el-tab-pane label="设置" name="settings">
-            <SettingsPanel />
-          </el-tab-pane>
-        </el-tabs>
+        <!-- 侧边栏图标区域 -->
+        <div class="sidebar-icons">
+          <div
+            class="sidebar-icon"
+            :class="{ active: activePanel === 'recognition' }"
+            @click="toggleRightPanel('recognition')"
+            title="语音识别"
+          >
+            <el-icon size="20"><Microphone /></el-icon>
+          </div>
+          <div
+            class="sidebar-icon"
+            :class="{ active: activePanel === 'subtitle' }"
+            @click="toggleRightPanel('subtitle')"
+            title="字幕编辑"
+          >
+            <el-icon size="20"><Edit /></el-icon>
+          </div>
+          <div
+            class="sidebar-icon"
+            :class="{ active: activePanel === 'settings' }"
+            @click="toggleRightPanel('settings')"
+            title="设置"
+          >
+            <el-icon size="20"><Setting /></el-icon>
+          </div>
+        </div>
+
+        <!-- 面板内容区域 -->
+        <div class="panel-content" v-show="rightPanelExpanded">
+          <div class="panel-header">
+            <span class="panel-title">
+              {{ activePanel === 'recognition' ? '语音识别' :
+                 activePanel === 'subtitle' ? '字幕编辑' : '设置' }}
+            </span>
+            <el-icon class="collapse-icon" @click="toggleRightPanel()" size="16">
+              <ArrowRight />
+            </el-icon>
+          </div>
+
+          <div class="panel-body">
+            <RecognitionPanel v-if="activePanel === 'recognition'" />
+            <SubtitleEditor v-if="activePanel === 'subtitle'" />
+            <SettingsPanel v-if="activePanel === 'settings'" />
+          </div>
+        </div>
       </div>
     </div>
     
@@ -115,24 +169,91 @@ onMounted(() => {
 }
 
 .right-panel {
-  width: 40%;
+  display: flex;
   background: #ffffff;
   overflow: hidden;
-  transition: width 0.3s ease;
+  transition: all 0.3s ease;
+  min-width: 48px; /* 侧边栏图标宽度 */
 }
 
-.right-panel.with-sidebar {
-  width: 25%;
-}
-
-
-
-
-.right-tabs {
-  height: 100%;
+/* 侧边栏图标区域 */
+.sidebar-icons {
+  width: 48px;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 4px;
 }
+
+.sidebar-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.sidebar-icon:hover {
+  background: rgba(15, 220, 120, 0.1);
+  color: #0fdc78;
+}
+
+.sidebar-icon.active {
+  background: #0fdc78;
+  color: #ffffff;
+}
+
+/* 面板内容区域 */
+.panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.panel-header {
+  height: 40px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.collapse-icon {
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.collapse-icon:hover {
+  color: #0fdc78;
+}
+
+.panel-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+
+
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
@@ -140,23 +261,31 @@ onMounted(() => {
     flex-direction: column;
     gap: 2px;
   }
-  
-  .left-panel,
-  .right-panel {
-    width: 100% !important;
-    border-right: none;
-  }
-  
+
   .left-panel {
+    width: 100% !important;
     height: 50%;
+    border-right: none;
     border-bottom: 2px solid #0fdc78;
   }
-  
-  .right-panel {
-    height: 50%;
-  }
-  
 
+  .right-panel {
+    width: 100% !important;
+    height: 50%;
+    min-width: unset;
+  }
+
+  .panel-content {
+    width: auto;
+  }
+
+  .sidebar-icons {
+    flex-direction: row;
+    width: 100%;
+    height: 48px;
+    padding: 0 8px;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 768px) {
@@ -174,50 +303,6 @@ onMounted(() => {
 }
 
 /* Element Plus 扁平化样式覆盖 */
-:deep(.el-tabs__content) {
-  flex: 1;
-  overflow: auto;
-  padding: 0;
-}
-
-:deep(.el-tabs__header) {
-  margin: 0;
-  background: #f8fafc;
-  border-bottom: 2px solid #0fdc78;
-}
-
-:deep(.el-tabs__nav-wrap) {
-  padding: 0 24px;
-}
-
-:deep(.el-tabs__item) {
-  font-weight: 500;
-  color: #374151;
-  border: none;
-  padding: 16px 20px;
-}
-
-:deep(.el-tabs__item:hover) {
-  color: #0fdc78;
-  background: rgba(15, 220, 120, 0.1);
-}
-
-:deep(.el-tabs__item.is-active) {
-  color: #0fdc78;
-  font-weight: 600;
-  background: rgba(15, 220, 120, 0.15);
-}
-
-:deep(.el-tabs__active-bar) {
-  background: #0fdc78;
-  height: 3px;
-}
-
-:deep(.el-tab-pane) {
-  height: 100%;
-  overflow: auto;
-  background: #ffffff;
-}
 
 /* 扁平化按钮样式 */
 :deep(.el-button) {

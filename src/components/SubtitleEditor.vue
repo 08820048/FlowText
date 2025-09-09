@@ -9,12 +9,6 @@
         <el-button size="small" @click="exportSubtitles">
           导出字幕
         </el-button>
-        <el-button size="small" @click="importSubtitles">
-          导入字幕
-        </el-button>
-        <el-button size="small" @click="addSampleSubtitles" v-if="videoStore.subtitles.length === 0">
-          添加示例数据
-        </el-button>
       </div>
     </div>
     
@@ -508,56 +502,7 @@ async function confirmExportSubtitles() {
   }
 }
 
-/**
-  * 导入字幕
-  */
- function importSubtitles() {
-   ElMessage.info('导入功能开发中...');
- }
- 
- /**
-  * 添加示例字幕数据
-  */
- function addSampleSubtitles() {
-   const sampleSubtitles: Subtitle[] = [
-     {
-       id: '1',
-       startTime: 5.0,
-       endTime: 8.5,
-       text: '欢迎使用FlowText字幕编辑器'
-     },
-     {
-       id: '2',
-       startTime: 9.0,
-       endTime: 12.5,
-       text: '这是一个功能强大的视频字幕制作工具'
-     },
-     {
-       id: '3',
-       startTime: 13.0,
-       endTime: 17.5,
-       text: '支持多种语音识别引擎，包括百度智能云、腾讯云等'
-     },
-     {
-       id: '4',
-       startTime: 18.0,
-       endTime: 21.5,
-       text: '您可以轻松编辑、添加和删除字幕'
-     },
-     {
-       id: '5',
-       startTime: 22.0,
-       endTime: 25.5,
-       text: '还支持多种字幕格式的导入和导出'
-     }
-   ];
-   
-   sampleSubtitles.forEach(subtitle => {
-     videoStore.addSubtitle(subtitle);
-   });
-   
-   ElMessage.success('示例字幕数据已添加');
- }
+
 </script>
 
 <style scoped>
