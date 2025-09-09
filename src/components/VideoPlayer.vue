@@ -815,17 +815,18 @@ if (import.meta.env.DEV) {
 .play-icon {
   font-size: 72px;
   color: white;
-  opacity: 0.9;
-  background: rgba(0, 0, 0, 0.3);
+  opacity: 1;
+  background: #67C23A;
   border-radius: 50%;
   padding: 20px;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
 }
 
 .play-icon:hover {
-  opacity: 1;
   transform: scale(1.1);
-  background: rgba(0, 0, 0, 0.4);
+  background: #5daf34;
+  box-shadow: 0 6px 16px rgba(103, 194, 58, 0.4);
 }
 
 .integrated-controls {
