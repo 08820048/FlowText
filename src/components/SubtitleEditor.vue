@@ -14,11 +14,6 @@
     <div class="editor-content">
       <!-- 字幕列表 -->
       <div v-if="videoStore.subtitles.length > 0" class="subtitle-list">
-        <div class="list-header">
-          <div class="col-time">时间</div>
-          <div class="col-text">字幕内容</div>
-          <div class="col-actions">操作</div>
-        </div>
         
         <div 
           v-for="subtitle in sortedSubtitles" 

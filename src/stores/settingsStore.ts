@@ -9,10 +9,31 @@ import type { AppSettings, RecognitionEngine, SubtitleFormat } from '../types';
 export const useSettingsStore = defineStore('settings', () => {
   // 默认设置
   const defaultSettings: AppSettings = {
-    defaultEngine: 'baidu',
+    defaultEngine: 'faster-whisper',
     defaultLanguage: 'zh',
     defaultSubtitleFormat: 'srt',
     apiKeys: {},
+    modelConfigs: {
+      whisper: {
+        size: 'base',
+        device: 'cpu',
+        computeType: 'float32'
+      },
+      fasterWhisper: {
+        size: 'base',
+        device: 'cpu',
+        computeType: 'int8',
+        beamSize: 5,
+        temperature: 0.0
+      },
+      sensevoice: {
+        size: 'small',
+        device: 'cpu',
+        language: 'auto',
+        enableEmotionRecognition: true,
+        enableEventDetection: true
+      }
+    },
     useGPU: true,
     maxConcurrentTasks: 2,
     autoSave: true,
@@ -31,12 +52,25 @@ export const useSettingsStore = defineStore('settings', () => {
       // 从本地存储加载设置
       const savedSettings = localStorage.getItem('flowtext-settings');
       if (savedSettings) {
-        settings.value = JSON.parse(savedSettings);
+        const parsed = JSON.parse(savedSettings);
+
+        // 检查是否有无效的引擎设置
+        if (parsed.defaultEngine === 'tencent' || !parsed.defaultEngine ||
+            !['whisper', 'faster-whisper', 'sensevoice'].includes(parsed.defaultEngine)) {
+          console.log('检测到无效的引擎设置，使用默认设置');
+          settings.value = { ...defaultSettings };
+          saveSettings();
+        } else {
+          settings.value = { ...defaultSettings, ...parsed };
+        }
+      } else {
+        settings.value = { ...defaultSettings };
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
       // 如果加载失败，使用默认设置
-      settings.value = defaultSettings;
+      settings.value = { ...defaultSettings };
+      saveSettings();
     }
   }
   

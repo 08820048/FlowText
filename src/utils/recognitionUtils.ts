@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { RecognitionEngine, RecognitionTask, Subtitle } from '../types';
+import type { RecognitionEngine, RecognitionTask, Subtitle, ExtendedRecognitionParams } from '../types';
 import { generateId } from './videoUtils';
+import { ModelApi } from './modelApi';
 
 /**
  * 开始语音识别任务
@@ -44,6 +45,56 @@ export async function startRecognition(
   } catch (error) {
     console.error('开始识别任务失败:', error);
     throw new Error(`开始识别任务失败: ${error}`);
+  }
+}
+
+/**
+ * 使用扩展配置开始语音识别任务
+ */
+export async function startRecognitionWithConfig(
+  params: ExtendedRecognitionParams
+): Promise<RecognitionTask> {
+  console.log('开始扩展配置识别任务:', {
+    engine: params.engine,
+    modelConfig: params.model_config
+  });
+
+  try {
+    // 验证模型配置
+    const validation = ModelApi.validateModelConfig(params.model_config);
+    if (!validation.valid) {
+      throw new Error(`模型配置无效: ${validation.errors.join(', ')}`);
+    }
+
+    // 检查模型是否已安装
+    const installed = await ModelApi.checkModelInstallation(params.engine);
+    if (!installed) {
+      console.warn(`模型 ${params.engine} 未安装，将尝试使用回退方案`);
+    }
+
+    // 创建任务对象
+    const task: RecognitionTask = {
+      id: generateId(),
+      videoInfo: {} as any, // 这里需要传入实际的视频信息
+      status: 'pending',
+      progress: 0,
+      engine: params.engine as RecognitionEngine,
+      language: params.language,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // 调用后端API
+    await invoke('start_recognition_with_config', {
+      taskId: task.id,
+      params
+    });
+
+    console.log('扩展配置识别任务已启动:', task.id);
+    return task;
+  } catch (error) {
+    console.error('启动扩展配置识别任务失败:', error);
+    throw new Error(`启动扩展配置识别任务失败: ${error}`);
   }
 }
 

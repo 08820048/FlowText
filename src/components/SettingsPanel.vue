@@ -18,12 +18,76 @@ const loading = ref({
   validate: false
 });
 
-// Whisper设置（本地识别，无需API密钥）
+// 多模型语音识别设置
 
-// 主题切换功能已移除
+// 当前默认引擎
+const defaultEngine = ref(settingsStore.settings.defaultEngine || 'faster-whisper');
 
-// 当前默认引擎（固定为whisper）
-const defaultEngine = ref('whisper');
+// 调试信息
+console.log('设置面板 - 当前默认引擎:', settingsStore.settings.defaultEngine);
+console.log('设置面板 - 完整设置:', settingsStore.settings);
+
+// 强制清除旧数据并重新初始化
+function forceResetSettings() {
+  console.log('强制重置设置...');
+  localStorage.removeItem('flowtext-settings');
+
+  // 重新初始化设置存储
+  settingsStore.resetSettings();
+
+  // 强制更新本地状态
+  defaultEngine.value = 'faster-whisper';
+  defaultLanguage.value = settingsStore.settings.defaultLanguage;
+  defaultSubtitleFormat.value = settingsStore.settings.defaultSubtitleFormat;
+  useGPU.value = settingsStore.settings.useGPU;
+  maxConcurrentTasks.value = settingsStore.settings.maxConcurrentTasks;
+  autoSave.value = settingsStore.settings.autoSave;
+  autoSaveInterval.value = settingsStore.settings.autoSaveInterval;
+  exportPath.value = settingsStore.settings.exportPath || '';
+
+  console.log('设置已重置，新的默认引擎:', defaultEngine.value);
+  ElMessage.success('设置已修复！默认引擎已设置为 Faster Whisper');
+}
+
+// 页面加载时检查并修复设置
+if (settingsStore.settings.defaultEngine === 'tencent' || !settingsStore.settings.defaultEngine) {
+  console.log('检测到无效的默认引擎，正在修复...');
+  forceResetSettings();
+}
+
+// 支持的引擎列表
+const supportedEngines = ref([
+  {
+    value: 'faster-whisper',
+    label: 'Faster Whisper',
+    description: '优化版Whisper，速度提升4-5倍',
+    icon: '🚀'
+  },
+  {
+    value: 'whisper',
+    label: 'OpenAI Whisper',
+    description: '原版Whisper，稳定可靠',
+    icon: '🎯'
+  },
+  {
+    value: 'sensevoice',
+    label: 'SenseVoice',
+    description: '阿里巴巴模型，支持情感识别',
+    icon: '🧠'
+  }
+]);
+
+// 当前默认模型大小
+const defaultModelSize = ref(settingsStore.settings.defaultModelSize || 'base');
+
+// 支持的模型大小
+const supportedModelSizes = ref([
+  { value: 'tiny', label: 'Tiny', description: '最快速度，基础精度' },
+  { value: 'base', label: 'Base', description: '平衡速度和精度' },
+  { value: 'small', label: 'Small', description: '较慢速度，较高精度' },
+  { value: 'medium', label: 'Medium', description: '中等速度，高精度' },
+  { value: 'large', label: 'Large', description: '最慢速度，最高精度' }
+]);
 
 // 当前默认语言
 const defaultLanguage = ref(settingsStore.settings.defaultLanguage);
@@ -162,10 +226,13 @@ onMounted(() => {
  * 重置所有设置
  */
 function resetAllSettings() {
+  // 清除本地存储中的旧数据
+  localStorage.removeItem('flowtext-settings');
+
   settingsStore.resetSettings();
-  
-  // 更新本地状态（固定为whisper）
-  defaultEngine.value = 'whisper';
+
+  // 更新本地状态
+  defaultEngine.value = settingsStore.settings.defaultEngine;
   defaultLanguage.value = settingsStore.settings.defaultLanguage;
   defaultSubtitleFormat.value = settingsStore.settings.defaultSubtitleFormat;
   useGPU.value = settingsStore.settings.useGPU;
@@ -277,6 +344,7 @@ function resetAllSettings() {
             <el-form-item>
               <el-button type="primary" @click="updateGeneralSettings">保存设置</el-button>
               <el-button @click="resetAllSettings">重置所有设置</el-button>
+              <el-button type="warning" @click="forceResetSettings">修复设置</el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>

@@ -44,7 +44,63 @@ export interface SubtitleStyle {
 }
 
 // 识别引擎类型
-export type RecognitionEngine = 'baidu' | 'tencent' | 'aliyun' | 'whisper';
+export type RecognitionEngine = 'whisper' | 'faster-whisper' | 'sensevoice' | 'baidu' | 'tencent' | 'aliyun';
+
+// 模型提供商类型
+export type ModelProvider = 'openai' | 'alibaba' | 'baidu' | 'tencent' | 'aliyun';
+
+// 模型配置接口
+export interface ModelConfig {
+  provider: ModelProvider;
+  name: string;
+  displayName: string;
+  description: string;
+  sizes: ModelSize[];
+  languages: string[];
+  features: ModelFeature[];
+  requirements: ModelRequirements;
+  performance: ModelPerformance;
+}
+
+// 模型大小配置
+export interface ModelSize {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  fileSize: string;
+  memoryUsage: string;
+  speed: 'very-fast' | 'fast' | 'medium' | 'slow' | 'very-slow';
+  accuracy: 'basic' | 'good' | 'high' | 'very-high' | 'excellent';
+  downloadUrl?: string;
+  localPath?: string;
+}
+
+// 模型特性
+export interface ModelFeature {
+  id: string;
+  name: string;
+  description: string;
+  supported: boolean;
+}
+
+// 模型系统要求
+export interface ModelRequirements {
+  python?: string;
+  packages: string[];
+  minMemory: string;
+  minDisk: string;
+  gpu?: boolean;
+  cuda?: string;
+}
+
+// 模型性能指标
+export interface ModelPerformance {
+  wer?: number; // Word Error Rate
+  rtf?: number; // Real Time Factor
+  latency?: number; // ms
+  throughput?: number; // words/second
+}
 
 // 识别任务状态
 export type RecognitionStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -92,7 +148,28 @@ export interface AppSettings {
       accessKeySecret: string;
     };
   };
-  whisperModel?: 'tiny' | 'base' | 'small';
+  // 模型配置
+  modelConfigs: {
+    whisper?: {
+      size: 'tiny' | 'base' | 'small' | 'medium' | 'large' | 'large-v2' | 'large-v3';
+      device: 'cpu' | 'gpu';
+      computeType?: 'int8' | 'int16' | 'float16' | 'float32';
+    };
+    fasterWhisper?: {
+      size: 'tiny' | 'base' | 'small' | 'medium' | 'large' | 'large-v2' | 'large-v3';
+      device: 'cpu' | 'gpu';
+      computeType: 'int8' | 'int16' | 'float16' | 'float32';
+      beamSize?: number;
+      temperature?: number;
+    };
+    sensevoice?: {
+      size: 'small' | 'large';
+      device: 'cpu' | 'gpu';
+      language?: 'auto' | 'zh' | 'en' | 'ja' | 'ko';
+      enableEmotionRecognition?: boolean;
+      enableEventDetection?: boolean;
+    };
+  };
   useGPU: boolean;
   maxConcurrentTasks: number;
   autoSave: boolean;

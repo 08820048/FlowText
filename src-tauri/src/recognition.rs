@@ -1,16 +1,36 @@
 use base64::Engine;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
-use tauri::State;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
+
+// 模型配置结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelConfig {
+    pub engine: String,
+    pub size: String,
+    pub device: String,
+    pub compute_type: Option<String>,
+    pub beam_size: Option<i32>,
+    pub temperature: Option<f32>,
+    pub enable_emotion_recognition: Option<bool>,
+    pub enable_event_detection: Option<bool>,
+}
+
+// 扩展的识别参数
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtendedRecognitionParams {
+    pub audio_path: String,
+    pub engine: String,
+    pub language: String,
+    pub model_config: ModelConfig,
+}
 
 // 全局任务状态管理
 lazy_static::lazy_static! {
@@ -144,6 +164,68 @@ pub fn start_recognition(
                     sleep(Duration::from_secs(1800)).await; // 30分钟后清理，给前端足够时间
                     cleanup_completed_task(&cleanup_task_id);
                 });
+            }
+        }
+    });
+
+    Ok(())
+}
+
+/// 使用扩展配置开始识别
+pub fn start_recognition_with_config(
+    task_id: String,
+    params: ExtendedRecognitionParams,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    println!("开始扩展配置识别任务: {}", task_id);
+    println!("识别参数: {:?}", params);
+
+    // 创建取消通道
+    let (cancel_tx, mut cancel_rx) = mpsc::channel::<()>(1);
+
+    // 创建识别任务
+    let task = RecognitionTask {
+        task_id: task_id.clone(),
+        audio_path: params.audio_path.clone(),
+        engine: params.engine.clone(),
+        language: params.language.clone(),
+        status: RecognitionStatus {
+            status: "pending".to_string(),
+            progress: 0.0,
+            result: None,
+            error: None,
+        },
+        cancel_sender: Some(cancel_tx),
+    };
+
+    // 存储任务
+    {
+        let mut tasks = RECOGNITION_TASKS.lock().unwrap();
+        tasks.insert(task_id.clone(), task);
+    }
+
+    let task_id_clone = task_id.clone();
+
+    tokio::spawn(async move {
+        // 更新状态为处理中
+        update_task_status(&task_id_clone, "processing".to_string(), 0.0, None, None);
+
+        // 使用扩展配置进行识别
+        let result = call_recognition_with_config(&params, &task_id_clone, &mut cancel_rx).await;
+
+        match result {
+            Ok(subtitles) => {
+                println!("识别成功，共生成{}条字幕", subtitles.len());
+                update_task_status(
+                    &task_id_clone,
+                    "completed".to_string(),
+                    100.0,
+                    Some(subtitles),
+                    None,
+                );
+            }
+            Err(e) => {
+                eprintln!("识别失败: {}", e);
+                update_task_status(&task_id_clone, "failed".to_string(), 0.0, None, Some(e));
             }
         }
     });
@@ -329,6 +411,140 @@ pub fn get_supported_languages(engine: &str) -> Result<Vec<Language>, String> {
     }
 }
 
+/// 获取可用模型列表
+pub fn get_available_models(
+) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error + Send + Sync>> {
+    let models = vec![
+        serde_json::json!({
+            "engine": "whisper",
+            "name": "OpenAI Whisper",
+            "description": "OpenAI开源的多语言语音识别模型",
+            "sizes": ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3"],
+            "features": ["multilingual", "timestamps", "translation"],
+            "requirements": {
+                "python": ">=3.8",
+                "packages": ["openai-whisper", "torch", "torchaudio"]
+            }
+        }),
+        serde_json::json!({
+            "engine": "faster-whisper",
+            "name": "Faster Whisper",
+            "description": "基于CTranslate2优化的Whisper实现，速度提升4-5倍",
+            "sizes": ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3"],
+            "features": ["multilingual", "timestamps", "optimization", "quantization"],
+            "requirements": {
+                "python": ">=3.8",
+                "packages": ["faster-whisper", "ctranslate2"]
+            }
+        }),
+        serde_json::json!({
+            "engine": "sensevoice",
+            "name": "SenseVoice",
+            "description": "阿里巴巴开源的多语言语音理解模型，支持情感识别和事件检测",
+            "sizes": ["small", "large"],
+            "features": ["multilingual", "timestamps", "emotion", "event", "language_id"],
+            "requirements": {
+                "python": ">=3.8",
+                "packages": ["funasr", "modelscope", "torch", "torchaudio"]
+            }
+        }),
+    ];
+
+    Ok(models)
+}
+
+/// 检查模型是否已安装
+pub fn check_model_installation(
+    engine: &str,
+) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    match engine {
+        "whisper" => {
+            // 检查whisper命令或Python包
+            let whisper_cmd = std::process::Command::new("whisper").arg("--help").output();
+            if whisper_cmd.is_ok() {
+                return Ok(true);
+            }
+
+            // 检查Python whisper包
+            let python_check = std::process::Command::new("python3")
+                .arg("-c")
+                .arg("import whisper; print('OK')")
+                .output();
+
+            Ok(python_check.is_ok() && python_check.unwrap().status.success())
+        }
+        "faster-whisper" => {
+            // 检查faster-whisper Python包
+            let python_check = std::process::Command::new("python3")
+                .arg("-c")
+                .arg("import faster_whisper; print('OK')")
+                .output();
+
+            Ok(python_check.is_ok() && python_check.unwrap().status.success())
+        }
+        "sensevoice" => {
+            // 检查funasr Python包
+            let python_check = std::process::Command::new("python3")
+                .arg("-c")
+                .arg("import funasr; print('OK')")
+                .output();
+
+            Ok(python_check.is_ok() && python_check.unwrap().status.success())
+        }
+        _ => Ok(false),
+    }
+}
+
+/// 获取模型详细信息
+pub fn get_model_info(
+    engine: &str,
+) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+    let models = get_available_models()?;
+
+    for model in models {
+        if model["engine"].as_str() == Some(engine) {
+            let mut info = model.clone();
+
+            // 添加安装状态
+            let installed = check_model_installation(engine).unwrap_or(false);
+            info["installed"] = serde_json::Value::Bool(installed);
+
+            // 添加性能信息
+            match engine {
+                "whisper" => {
+                    info["performance"] = serde_json::json!({
+                        "wer": 0.15,
+                        "rtf": 0.3,
+                        "latency": 2000,
+                        "throughput": 150
+                    });
+                }
+                "faster-whisper" => {
+                    info["performance"] = serde_json::json!({
+                        "wer": 0.15,
+                        "rtf": 0.06,
+                        "latency": 500,
+                        "throughput": 600
+                    });
+                }
+                "sensevoice" => {
+                    info["performance"] = serde_json::json!({
+                        "wer": 0.12,
+                        "rtf": 0.1,
+                        "latency": 800,
+                        "throughput": 400
+                    });
+                }
+                _ => {}
+            }
+
+            return Ok(info);
+        }
+    }
+
+    Err(format!("未找到模型: {}", engine).into())
+}
+
 /// 验证API密钥
 pub fn validate_api_keys(engine: &str, api_keys: Value) -> Result<bool, String> {
     // 在实际应用中，这里应该调用相应API进行验证
@@ -419,6 +635,33 @@ fn cleanup_completed_task(task_id: &str) {
     }
 }
 
+/// 使用配置参数进行识别（新的统一入口）
+async fn call_recognition_with_config(
+    params: &ExtendedRecognitionParams,
+    task_id: &str,
+    cancel_rx: &mut mpsc::Receiver<()>,
+) -> Result<Vec<crate::video::Subtitle>, String> {
+    use std::fs;
+    use std::process::Command;
+
+    // 检查音频文件是否存在
+    if !std::path::Path::new(&params.audio_path).exists() {
+        return Err(format!("音频文件不存在: {}", params.audio_path));
+    }
+
+    update_task_status(task_id, "processing".to_string(), 0.1, None, None);
+
+    match params.engine.as_str() {
+        "whisper" => call_whisper_with_config(params, task_id, cancel_rx).await,
+        "faster-whisper" => call_faster_whisper_with_config(params, task_id, cancel_rx).await,
+        "sensevoice" => call_sensevoice_with_config(params, task_id, cancel_rx).await,
+        _ => {
+            // 回退到原有的Whisper API
+            call_whisper_api(&params.audio_path, &params.language, task_id, cancel_rx).await
+        }
+    }
+}
+
 /// 调用Whisper进行本地语音识别
 async fn call_whisper_api(
     audio_path: &str,
@@ -426,9 +669,6 @@ async fn call_whisper_api(
     task_id: &str,
     cancel_rx: &mut mpsc::Receiver<()>,
 ) -> Result<Vec<crate::video::Subtitle>, String> {
-    use std::fs;
-    use std::process::Command;
-
     // 检查音频文件是否存在
     if !std::path::Path::new(audio_path).exists() {
         return Err(format!("音频文件不存在: {}", audio_path));
@@ -451,12 +691,391 @@ async fn call_whisper_api(
     }
 }
 
+/// 使用配置的Whisper进行识别
+async fn call_whisper_with_config(
+    params: &ExtendedRecognitionParams,
+    task_id: &str,
+    cancel_rx: &mut mpsc::Receiver<()>,
+) -> Result<Vec<crate::video::Subtitle>, String> {
+    println!("使用Whisper模型进行识别，配置: {:?}", params.model_config);
+
+    // 检查whisper命令是否可用
+    let whisper_check = Command::new("whisper").arg("--help").output();
+
+    match whisper_check {
+        Ok(_) => {
+            println!("发现whisper命令，使用本地Whisper进行识别");
+            call_local_whisper_with_config(params, task_id, cancel_rx).await
+        }
+        Err(_) => {
+            println!("未找到whisper命令，尝试使用Python whisper");
+            call_python_whisper_with_config(params, task_id, cancel_rx).await
+        }
+    }
+}
+
+/// 使用配置的Faster-Whisper进行识别
+async fn call_faster_whisper_with_config(
+    params: &ExtendedRecognitionParams,
+    task_id: &str,
+    cancel_rx: &mut mpsc::Receiver<()>,
+) -> Result<Vec<crate::video::Subtitle>, String> {
+    println!(
+        "使用Faster-Whisper模型进行识别，配置: {:?}",
+        params.model_config
+    );
+
+    update_task_status(task_id, "processing".to_string(), 0.3, None, None);
+
+    // 构建Python脚本来调用faster-whisper
+    let python_script = format!(
+        r#"
+import sys
+import json
+from faster_whisper import WhisperModel
+
+try:
+    # 初始化模型
+    model = WhisperModel(
+        "{model_size}",
+        device="{device}",
+        compute_type="{compute_type}"
+    )
+
+    # 设置参数
+    beam_size = {beam_size}
+    temperature = {temperature}
+
+    # 进行识别
+    segments, info = model.transcribe(
+        "{audio_path}",
+        language="{language}" if "{language}" != "auto" else None,
+        beam_size=beam_size,
+        temperature=temperature,
+        word_timestamps=True
+    )
+
+    # 输出SRT格式
+    for i, segment in enumerate(segments):
+        start = segment.start
+        end = segment.end
+        text = segment.text.strip()
+
+        start_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+            int(start // 3600),
+            int((start % 3600) // 60),
+            start % 60
+        )
+        end_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+            int(end // 3600),
+            int((end % 3600) // 60),
+            end % 60
+        )
+
+        print(f"{{i+1}}")
+        print(f"{{start_time}} --> {{end_time}}")
+        print(text)
+        print()
+
+except Exception as e:
+    print(f"Error: {{e}}", file=sys.stderr)
+    sys.exit(1)
+"#,
+        model_size = params.model_config.size,
+        device = params.model_config.device,
+        compute_type = params
+            .model_config
+            .compute_type
+            .as_ref()
+            .unwrap_or(&"int8".to_string()),
+        beam_size = params.model_config.beam_size.unwrap_or(5),
+        temperature = params.model_config.temperature.unwrap_or(0.0),
+        audio_path = params.audio_path,
+        language = if params.language == "zh" {
+            "zh"
+        } else {
+            &params.language
+        }
+    );
+
+    // 执行Python脚本
+    let output = Command::new("python3")
+        .arg("-c")
+        .arg(&python_script)
+        .output()
+        .map_err(|e| format!("执行faster-whisper失败: {}", e))?;
+
+    if !output.status.success() {
+        let error_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Faster-Whisper识别失败: {}", error_msg));
+    }
+
+    // 解析输出
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    parse_srt_content(&output_str)
+}
+
+/// 使用配置的SenseVoice进行识别
+async fn call_sensevoice_with_config(
+    params: &ExtendedRecognitionParams,
+    task_id: &str,
+    cancel_rx: &mut mpsc::Receiver<()>,
+) -> Result<Vec<crate::video::Subtitle>, String> {
+    println!(
+        "使用SenseVoice模型进行识别，配置: {:?}",
+        params.model_config
+    );
+
+    update_task_status(task_id, "processing".to_string(), 0.3, None, None);
+
+    // 构建Python脚本来调用SenseVoice
+    let python_script = format!(
+        r#"
+import sys
+from funasr import AutoModel
+
+try:
+    # 初始化SenseVoice模型
+    model = AutoModel(
+        model="iic/SenseVoiceSmall" if "{model_size}" == "small" else "iic/SenseVoiceLarge",
+        device="{device}"
+    )
+
+    # 进行识别
+    result = model.generate(
+        input="{audio_path}",
+        language="{language}" if "{language}" != "auto" else "auto",
+        use_itn=True,
+        batch_size_s=60
+    )
+
+    # 输出SRT格式
+    if result and len(result) > 0:
+        for i, item in enumerate(result):
+            if 'text' in item:
+                # SenseVoice通常返回整段文本，需要分段处理
+                text = item['text'].strip()
+                if text:
+                    # 简单分段，实际应用中可能需要更复杂的分段逻辑
+                    duration = 5.0  # 假设每段5秒
+                    start_time = i * duration
+                    end_time = start_time + duration
+
+                    start_formatted = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+                        int(start_time // 3600),
+                        int((start_time % 3600) // 60),
+                        start_time % 60
+                    )
+                    end_formatted = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+                        int(end_time // 3600),
+                        int((end_time % 3600) // 60),
+                        end_time % 60
+                    )
+
+                    print(f"{{i+1}}")
+                    print(f"{{start_formatted}} --> {{end_formatted}}")
+                    print(text)
+                    print()
+
+                    # 情感和事件信息暂时跳过，避免格式问题
+
+except Exception as e:
+    print(f"Error: {{e}}", file=sys.stderr)
+    sys.exit(1)
+"#,
+        model_size = params.model_config.size,
+        device = params.model_config.device,
+        audio_path = params.audio_path,
+        language = if params.language == "zh" {
+            "zh"
+        } else {
+            &params.language
+        }
+    );
+
+    // 执行Python脚本
+    let output = Command::new("python3")
+        .arg("-c")
+        .arg(&python_script)
+        .output()
+        .map_err(|e| format!("执行SenseVoice失败: {}", e))?;
+
+    if !output.status.success() {
+        let error_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("SenseVoice识别失败: {}", error_msg));
+    }
+
+    // 解析输出
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    parse_srt_content(&output_str)
+}
+
+/// 使用配置的本地whisper命令进行识别
+async fn call_local_whisper_with_config(
+    params: &ExtendedRecognitionParams,
+    task_id: &str,
+    cancel_rx: &mut mpsc::Receiver<()>,
+) -> Result<Vec<crate::video::Subtitle>, String> {
+    use std::path::Path;
+    use std::process::Command;
+
+    let audio_file = Path::new(&params.audio_path);
+    let output_dir = audio_file.parent().unwrap_or(Path::new("."));
+    let file_stem = audio_file.file_stem().unwrap().to_string_lossy();
+
+    update_task_status(task_id, "processing".to_string(), 0.3, None, None);
+
+    // 构建whisper命令
+    let mut cmd = Command::new("whisper");
+    cmd.arg(&params.audio_path)
+        .arg("--model")
+        .arg(&params.model_config.size) // 使用配置的模型大小
+        .arg("--output_format")
+        .arg("srt")
+        .arg("--output_dir")
+        .arg(output_dir)
+        .arg("--verbose")
+        .arg("False")
+        .arg("--task")
+        .arg("transcribe"); // 明确指定转写任务
+
+    // 添加设备参数
+    if params.model_config.device == "gpu" {
+        cmd.arg("--device").arg("cuda");
+    }
+
+    // 添加温度参数
+    if let Some(temperature) = params.model_config.temperature {
+        cmd.arg("--temperature").arg(temperature.to_string());
+    }
+
+    // 设置语言
+    if params.language == "zh" || params.language == "zh-CN" || params.language.is_empty() {
+        cmd.arg("--language").arg("zh");
+        cmd.arg("--initial_prompt").arg("以下是简体中文语音：");
+    } else {
+        let whisper_lang = match params.language.as_str() {
+            "en" => "en",
+            "ja" => "ja",
+            "ko" => "ko",
+            "fr" => "fr",
+            "de" => "de",
+            "es" => "es",
+            "ru" => "ru",
+            _ => "auto",
+        };
+        cmd.arg("--language").arg(whisper_lang);
+    }
+
+    println!("执行whisper命令: {:?}", cmd);
+
+    // 执行命令
+    let output = cmd
+        .output()
+        .map_err(|e| format!("执行whisper命令失败: {}", e))?;
+
+    if !output.status.success() {
+        let error_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Whisper命令执行失败: {}", error_msg));
+    }
+
+    update_task_status(task_id, "processing".to_string(), 0.8, None, None);
+
+    // 读取生成的SRT文件
+    let srt_file_path = output_dir.join(format!("{}.srt", file_stem));
+
+    if !srt_file_path.exists() {
+        return Err("未找到生成的SRT文件".to_string());
+    }
+
+    let srt_content =
+        std::fs::read_to_string(&srt_file_path).map_err(|e| format!("读取SRT文件失败: {}", e))?;
+
+    // 解析SRT内容
+    parse_srt_content(&srt_content)
+}
+
+/// 使用配置的Python whisper进行识别
+async fn call_python_whisper_with_config(
+    params: &ExtendedRecognitionParams,
+    task_id: &str,
+    _cancel_rx: &mut mpsc::Receiver<()>,
+) -> Result<Vec<crate::video::Subtitle>, String> {
+    update_task_status(task_id, "processing".to_string(), 0.3, None, None);
+
+    // 构建Python脚本
+    let python_script = format!(
+        r#"
+import sys
+import whisper
+
+try:
+    model = whisper.load_model("{model_size}")
+    result = model.transcribe(
+        "{audio_path}",
+        language="{language}" if "{language}" != "auto" else None,
+        temperature={temperature}
+    )
+
+    # 输出SRT格式
+    for i, segment in enumerate(result['segments']):
+        start = segment['start']
+        end = segment['end']
+        text = segment['text'].strip()
+
+        start_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+            int(start // 3600),
+            int((start % 3600) // 60),
+            start % 60
+        )
+        end_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+            int(end // 3600),
+            int((end % 3600) // 60),
+            end % 60
+        )
+
+        print(f"{{i+1}}")
+        print(f"{{start_time}} --> {{end_time}}")
+        print(text)
+        print()
+
+except Exception as e:
+    print(f"Error: {{e}}", file=sys.stderr)
+    sys.exit(1)
+"#,
+        model_size = params.model_config.size,
+        audio_path = params.audio_path,
+        language = if params.language == "zh" {
+            "zh"
+        } else {
+            &params.language
+        },
+        temperature = params.model_config.temperature.unwrap_or(0.0)
+    );
+
+    // 执行Python脚本
+    let output = Command::new("python3")
+        .arg("-c")
+        .arg(&python_script)
+        .output()
+        .map_err(|e| format!("执行Python whisper失败: {}", e))?;
+
+    if !output.status.success() {
+        let error_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Python Whisper识别失败: {}", error_msg));
+    }
+
+    // 解析输出
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    parse_srt_content(&output_str)
+}
+
 /// 使用本地whisper命令进行识别
 async fn call_local_whisper(
     audio_path: &str,
     language: &str,
     task_id: &str,
-    cancel_rx: &mut mpsc::Receiver<()>,
+    _cancel_rx: &mut mpsc::Receiver<()>,
 ) -> Result<Vec<crate::video::Subtitle>, String> {
     use std::path::Path;
     use std::process::Command;

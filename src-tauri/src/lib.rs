@@ -3,7 +3,6 @@ mod recognition;
 mod video;
 
 use recognition::*;
-use tauri::Manager;
 use video::*;
 
 // 视频处理命令
@@ -86,6 +85,31 @@ async fn validate_api_keys(engine: String, api_keys: serde_json::Value) -> Resul
     recognition::validate_api_keys(&engine, api_keys).map_err(|e| e.to_string())
 }
 
+// 扩展的语音识别命令
+#[tauri::command]
+async fn start_recognition_with_config(
+    task_id: String,
+    params: ExtendedRecognitionParams,
+) -> Result<(), String> {
+    recognition::start_recognition_with_config(task_id, params).map_err(|e| e.to_string())
+}
+
+// 模型管理命令
+#[tauri::command]
+async fn get_available_models() -> Result<Vec<serde_json::Value>, String> {
+    recognition::get_available_models().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn check_model_installation(engine: String) -> Result<bool, String> {
+    recognition::check_model_installation(&engine).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_model_info(engine: String) -> Result<serde_json::Value, String> {
+    recognition::get_model_info(&engine).map_err(|e| e.to_string())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -99,10 +123,14 @@ pub fn run() {
             get_default_export_path,
             import_subtitles,
             start_recognition,
+            start_recognition_with_config,
             get_recognition_status,
             cancel_recognition,
             get_supported_languages,
-            validate_api_keys
+            validate_api_keys,
+            get_available_models,
+            check_model_installation,
+            get_model_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
