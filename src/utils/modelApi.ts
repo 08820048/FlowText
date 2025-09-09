@@ -33,6 +33,31 @@ export class ModelApi {
   }
 
   /**
+   * 检查特定模型大小是否已下载
+   */
+  static async checkModelSizeAvailable(engine: string, size: string): Promise<boolean> {
+    try {
+      const available = await invoke<boolean>('check_model_size_available', { engine, size });
+      return available;
+    } catch (error) {
+      console.error('检查模型大小可用性失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 下载模型
+   */
+  static async downloadModel(engine: string, size: string): Promise<void> {
+    try {
+      await invoke<void>('download_model', { engine, size });
+    } catch (error) {
+      console.error('下载模型失败:', error);
+      throw new Error(`下载模型失败: ${error}`);
+    }
+  }
+
+  /**
    * 获取指定模型的详细信息
    */
   static async getModelInfo(engine: string): Promise<any> {

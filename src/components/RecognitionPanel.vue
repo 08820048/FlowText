@@ -35,6 +35,10 @@ const currentModel = ref<ModelConfig | null>(null);
 const availableModelSizes = ref<ModelSize[]>([]);
 const showAdvancedSettings = ref(false);
 
+// 模型状态
+const modelStatus = ref<Record<string, 'unknown' | 'available' | 'downloading' | 'not_available'>>({});
+const downloadProgress = ref<Record<string, number>>({});
+
 // 加载状态
 const loading = ref({
   extract: false,
@@ -81,6 +85,24 @@ const canCancelRecognition = computed(() => {
   );
 });
 
+// 计算属性：当前模型是否需要下载
+const needsDownload = computed(() => {
+  const status = getModelStatus(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
+  return status === 'not_available';
+});
+
+// 计算属性：是否正在下载
+const isDownloading = computed(() => {
+  const status = getModelStatus(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
+  return status === 'downloading';
+});
+
+// 计算属性：当前下载进度
+const currentDownloadProgress = computed(() => {
+  const key = `${recognitionSettings.value.engine}-${recognitionSettings.value.modelSize}`;
+  return downloadProgress.value[key] || 0;
+});
+
 // 支持的引擎列表
 const supportedEngines = ref([
   {
@@ -122,13 +144,17 @@ const supportedLanguages = computed(() => {
 });
 
 // 监听引擎变化，更新模型配置
-watch(() => recognitionSettings.value.engine, (newEngine) => {
+watch(() => recognitionSettings.value.engine, async (newEngine) => {
   updateModelConfig(newEngine);
+  // 检查当前选中模型大小的状态
+  await checkModelSizeStatus(newEngine, recognitionSettings.value.modelSize);
 }, { immediate: true });
 
 // 监听模型大小变化，更新高级设置的可用选项
-watch(() => recognitionSettings.value.modelSize, (newSize) => {
+watch(() => recognitionSettings.value.modelSize, async (newSize) => {
   updateAdvancedSettingsForSize(newSize);
+  // 检查新选中模型大小的状态
+  await checkModelSizeStatus(recognitionSettings.value.engine, newSize);
 });
 
 /**
@@ -205,9 +231,85 @@ const modelPerformanceInfo = computed(() => {
  * 检查模型是否已安装
  */
 async function checkModelInstallation(engine: RecognitionEngine): Promise<boolean> {
-  // 这里应该调用后端API检查模型是否已安装
-  // 暂时返回true，实际实现需要检查Python包和模型文件
-  return true;
+  try {
+    return await ModelApi.checkModelInstallation(engine);
+  } catch (error) {
+    console.error('检查模型安装失败:', error);
+    return false;
+  }
+}
+
+/**
+ * 检查特定模型大小是否可用
+ */
+async function checkModelSizeStatus(engine: RecognitionEngine, size: string): Promise<void> {
+  const key = `${engine}-${size}`;
+
+  try {
+    modelStatus.value[key] = 'unknown';
+    const available = await ModelApi.checkModelSizeAvailable(engine, size);
+    modelStatus.value[key] = available ? 'available' : 'not_available';
+  } catch (error) {
+    console.error('检查模型大小状态失败:', error);
+    modelStatus.value[key] = 'not_available';
+  }
+}
+
+/**
+ * 下载模型
+ */
+async function downloadModelSize(engine: RecognitionEngine, size: string): Promise<void> {
+  const key = `${engine}-${size}`;
+
+  try {
+    modelStatus.value[key] = 'downloading';
+    downloadProgress.value[key] = 0;
+
+    // 模拟下载进度（实际应该从后端获取）
+    const progressInterval = setInterval(() => {
+      if (downloadProgress.value[key] < 90) {
+        downloadProgress.value[key] += Math.random() * 10;
+      }
+    }, 500);
+
+    await ModelApi.downloadModel(engine, size);
+
+    clearInterval(progressInterval);
+    downloadProgress.value[key] = 100;
+    modelStatus.value[key] = 'available';
+
+    ElMessage.success(`${engine} ${size} 模型下载完成`);
+  } catch (error) {
+    modelStatus.value[key] = 'not_available';
+    ElMessage.error(`模型下载失败: ${error}`);
+    throw error;
+  }
+}
+
+/**
+ * 获取模型状态
+ */
+function getModelStatus(engine: RecognitionEngine, size: string): string {
+  const key = `${engine}-${size}`;
+  return modelStatus.value[key] || 'unknown';
+}
+
+/**
+ * 模型大小变化时的处理
+ */
+async function onModelSizeChange(newSize: string) {
+  await checkModelSizeStatus(recognitionSettings.value.engine, newSize);
+}
+
+/**
+ * 下载当前选中的模型
+ */
+async function downloadCurrentModel() {
+  try {
+    await downloadModelSize(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
+  } catch (error) {
+    console.error('下载模型失败:', error);
+  }
 }
 
 /**
@@ -293,6 +395,18 @@ async function startRecognitionProcess() {
 
   if (!videoStore.currentVideo || videoStore.selectedAudioTrackId === null) {
     ElMessage.warning('请先导入视频并选择音频轨道');
+    return;
+  }
+
+  // 检查模型是否可用
+  const modelStatus = getModelStatus(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
+  if (modelStatus === 'not_available') {
+    ElMessage.error('所选模型未下载，请先下载模型');
+    return;
+  }
+
+  if (modelStatus === 'downloading') {
+    ElMessage.warning('模型正在下载中，请等待下载完成');
     return;
   }
 
@@ -598,7 +712,7 @@ async function cancelRecognitionProcess() {
 
         <!-- 模型大小选择 -->
         <el-form-item label="模型大小" v-if="availableModelSizes.length > 0">
-          <el-select v-model="recognitionSettings.modelSize" class="form-select">
+          <el-select v-model="recognitionSettings.modelSize" class="form-select" @change="onModelSizeChange">
             <el-option
               v-for="size in availableModelSizes"
               :key="size.id"
@@ -615,6 +729,28 @@ async function cancelRecognitionProcess() {
                     <el-tag :type="getAccuracyTagType(size.accuracy)" size="small">
                       {{ getAccuracyText(size.accuracy) }}
                     </el-tag>
+                    <!-- 模型状态标签 -->
+                    <el-tag
+                      v-if="getModelStatus(recognitionSettings.engine, size.id) === 'available'"
+                      type="success"
+                      size="small"
+                    >
+                      已下载
+                    </el-tag>
+                    <el-tag
+                      v-else-if="getModelStatus(recognitionSettings.engine, size.id) === 'downloading'"
+                      type="warning"
+                      size="small"
+                    >
+                      下载中
+                    </el-tag>
+                    <el-tag
+                      v-else-if="getModelStatus(recognitionSettings.engine, size.id) === 'not_available'"
+                      type="danger"
+                      size="small"
+                    >
+                      未下载
+                    </el-tag>
                   </div>
                   <div class="size-desc">{{ size.description }}</div>
                   <div class="size-stats">
@@ -624,6 +760,35 @@ async function cancelRecognitionProcess() {
               </div>
             </el-option>
           </el-select>
+        </el-form-item>
+
+        <!-- 模型下载提示 -->
+        <el-form-item v-if="needsDownload">
+          <el-alert
+            :title="`${recognitionSettings.engine} ${recognitionSettings.modelSize} 模型未下载`"
+            type="warning"
+            :closable="false"
+            show-icon
+          >
+            <template #default>
+              <p>该模型需要先下载才能使用。点击下载按钮开始下载。</p>
+              <el-button
+                type="primary"
+                size="small"
+                :loading="isDownloading"
+                @click="downloadCurrentModel"
+                style="margin-top: 8px;"
+              >
+                {{ isDownloading ? '下载中...' : '下载模型' }}
+              </el-button>
+              <el-progress
+                v-if="isDownloading && currentDownloadProgress > 0"
+                :percentage="currentDownloadProgress"
+                :stroke-width="6"
+                style="margin-top: 8px;"
+              />
+            </template>
+          </el-alert>
         </el-form-item>
 
         <el-form-item label="识别语言">

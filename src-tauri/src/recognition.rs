@@ -495,6 +495,149 @@ pub fn check_model_installation(
     }
 }
 
+/// 检查特定模型大小是否已下载
+pub fn check_model_size_available(
+    engine: &str,
+    size: &str,
+) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    match engine {
+        "whisper" => {
+            // 检查Whisper模型是否已下载
+            let python_script = format!(
+                r#"
+import whisper
+try:
+    model = whisper.load_model("{}")
+    print("available")
+except Exception as e:
+    print(f"not_available: {{e}}")
+"#,
+                size
+            );
+
+            let output = std::process::Command::new("python3")
+                .arg("-c")
+                .arg(&python_script)
+                .output()?;
+
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            Ok(output_str.contains("available"))
+        }
+        "faster-whisper" => {
+            // 检查Faster-Whisper模型是否已下载
+            let python_script = format!(
+                r#"
+from faster_whisper import WhisperModel
+try:
+    model = WhisperModel("{}", device="cpu")
+    print("available")
+except Exception as e:
+    print(f"not_available: {{e}}")
+"#,
+                size
+            );
+
+            let output = std::process::Command::new("python3")
+                .arg("-c")
+                .arg(&python_script)
+                .output()?;
+
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            Ok(output_str.contains("available"))
+        }
+        "sensevoice" => {
+            // SenseVoice模型检查（简化版）
+            let python_script = r#"
+import funasr
+try:
+    # 检查funasr是否可以正常导入
+    print("available")
+except Exception as e:
+    print(f"not_available: {e}")
+"#;
+
+            let output = std::process::Command::new("python3")
+                .arg("-c")
+                .arg(&python_script)
+                .output()?;
+
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            Ok(output_str.contains("available"))
+        }
+        _ => Ok(false),
+    }
+}
+
+/// 下载模型
+pub async fn download_model(
+    engine: &str,
+    size: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    match engine {
+        "whisper" => {
+            // 下载Whisper模型
+            let python_script = format!(
+                r#"
+import whisper
+print(f"开始下载 Whisper {} 模型...")
+try:
+    model = whisper.load_model("{}")
+    print("模型下载完成")
+except Exception as e:
+    print(f"下载失败: {{e}}")
+    raise e
+"#,
+                size, size
+            );
+
+            let output = std::process::Command::new("python3")
+                .arg("-c")
+                .arg(&python_script)
+                .output()?;
+
+            if !output.status.success() {
+                let error_msg = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("Whisper模型下载失败: {}", error_msg).into());
+            }
+        }
+        "faster-whisper" => {
+            // 下载Faster-Whisper模型
+            let python_script = format!(
+                r#"
+from faster_whisper import WhisperModel
+print(f"开始下载 Faster-Whisper {} 模型...")
+try:
+    model = WhisperModel("{}", device="cpu")
+    print("模型下载完成")
+except Exception as e:
+    print(f"下载失败: {{e}}")
+    raise e
+"#,
+                size, size
+            );
+
+            let output = std::process::Command::new("python3")
+                .arg("-c")
+                .arg(&python_script)
+                .output()?;
+
+            if !output.status.success() {
+                let error_msg = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("Faster-Whisper模型下载失败: {}", error_msg).into());
+            }
+        }
+        "sensevoice" => {
+            // SenseVoice模型下载（需要根据实际情况实现）
+            println!("SenseVoice模型下载功能待实现");
+        }
+        _ => {
+            return Err(format!("不支持的模型引擎: {}", engine).into());
+        }
+    }
+
+    Ok(())
+}
+
 /// 获取模型详细信息
 pub fn get_model_info(
     engine: &str,

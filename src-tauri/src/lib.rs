@@ -110,6 +110,18 @@ async fn get_model_info(engine: String) -> Result<serde_json::Value, String> {
     recognition::get_model_info(&engine).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn check_model_size_available(engine: String, size: String) -> Result<bool, String> {
+    recognition::check_model_size_available(&engine, &size).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn download_model(engine: String, size: String) -> Result<(), String> {
+    recognition::download_model(&engine, &size)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -130,7 +142,9 @@ pub fn run() {
             validate_api_keys,
             get_available_models,
             check_model_installation,
-            get_model_info
+            get_model_info,
+            check_model_size_available,
+            download_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
