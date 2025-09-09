@@ -189,8 +189,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 绿色分割线 -->
-    <div class="app-divider"></div>
     
     <!-- 主内容区 -->
     <div class="main-content" :class="{ dragging: isDragging }">
@@ -258,17 +256,14 @@ onUnmounted(() => {
 
 /* 自定义标题栏 */
 .custom-titlebar {
-  height: 28px;
+  height: 32px;
   background: transparent;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 0;
-  /* 确保在系统标题栏内 */
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  padding: 0 16px;
+  /* 确保在系统标题栏下方 */
+  position: relative;
   z-index: 1000;
   /* 允许拖拽窗口 */
   -webkit-app-region: drag;
@@ -276,12 +271,12 @@ onUnmounted(() => {
 
 .titlebar-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
   /* 防止拖拽区域影响按钮点击 */
   -webkit-app-region: no-drag;
-  /* 更贴近右边，为系统按钮留出更少空间 */
-  margin-right: 72px;
+  /* 确保图标不会被顶到界面外 */
+  margin-right: 0;
 }
 
 .titlebar-icon {
@@ -306,14 +301,7 @@ onUnmounted(() => {
   color: #ffffff;
 }
 
-/* 绿色分割线 */
-.app-divider {
-  height: 2px;
-  background: #0fdc78;
-  flex-shrink: 0;
-  /* 为标题栏留出空间 */
-  margin-top: 28px;
-}
+
 
 
 
