@@ -510,7 +510,7 @@ try:
     model = whisper.load_model("{}")
     print("available")
 except Exception as e:
-    print(f"not_available: {{e}}")
+    print("not_available: " + str(e))
 "#,
                 size
             );
@@ -534,7 +534,7 @@ try:
 except ImportError:
     print("not_available: faster_whisper module not installed")
 except Exception as e:
-    print(f"not_available: {{e}}")
+    print("not_available: " + str(e))
 "#,
                 size
             );
@@ -562,7 +562,7 @@ try:
     # 检查funasr是否可以正常导入
     print("available")
 except Exception as e:
-    print(f"not_available: {e}")
+    print("not_available: " + str(e))
 "#;
 
             let output = std::process::Command::new("python3")
@@ -855,24 +855,24 @@ try:
         end = segment.end
         text = segment.text.strip()
 
-        start_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+        start_time = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(start // 3600),
             int((start % 3600) // 60),
             start % 60
         )
-        end_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+        end_time = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(end // 3600),
             int((end % 3600) // 60),
             end % 60
         )
 
-        print(f"{{i+1}}")
-        print(f"{{start_time}} --> {{end_time}}")
+        print(i+1)
+        print(start_time + " --> " + end_time)
         print(text)
         print()
 
 except Exception as e:
-    print(f"Error: {{e}}", file=sys.stderr)
+    print("Error: " + str(e), file=sys.stderr)
     sys.exit(1)
 "#,
         model_size = params.model_config.size,
@@ -955,26 +955,26 @@ try:
                     start_time = i * duration
                     end_time = start_time + duration
 
-                    start_formatted = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+                    start_formatted = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
                         int(start_time // 3600),
                         int((start_time % 3600) // 60),
                         start_time % 60
                     )
-                    end_formatted = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+                    end_formatted = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
                         int(end_time // 3600),
                         int((end_time % 3600) // 60),
                         end_time % 60
                     )
 
-                    print(f"{{i+1}}")
-                    print(f"{{start_formatted}} --> {{end_formatted}}")
+                    print(i+1)
+                    print(start_formatted + " --> " + end_formatted)
                     print(text)
                     print()
 
                     # 情感和事件信息暂时跳过，避免格式问题
 
 except Exception as e:
-    print(f"Error: {{e}}", file=sys.stderr)
+    print("Error: " + str(e), file=sys.stderr)
     sys.exit(1)
 "#,
         model_size = params.model_config.size,
@@ -1117,24 +1117,24 @@ try:
         end = segment['end']
         text = segment['text'].strip()
 
-        start_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+        start_time = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(start // 3600),
             int((start % 3600) // 60),
             start % 60
         )
-        end_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+        end_time = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(end // 3600),
             int((end % 3600) // 60),
             end % 60
         )
 
-        print(f"{{i+1}}")
-        print(f"{{start_time}} --> {{end_time}}")
+        print(i+1)
+        print(start_time + " --> " + end_time)
         print(text)
         print()
 
 except Exception as e:
-    print(f"Error: {{e}}", file=sys.stderr)
+    print("Error: " + str(e), file=sys.stderr)
     sys.exit(1)
 "#,
         model_size = params.model_config.size,
@@ -1306,23 +1306,23 @@ try:
             except:
                 pass  # 如果转换失败，保持原文
         
-        start_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+        start_time = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(start // 3600),
             int((start % 3600) // 60),
             start % 60
         )
-        end_time = f"{{:02d}}:{{:02d}}:{{:06.3f}}".format(
+        end_time = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(end // 3600),
             int((end % 3600) // 60),
             end % 60
         )
-        
-        print(f"{{i+1}}")
-        print(f"{{start_time}} --> {{end_time}}")
+
+        print(i+1)
+        print(start_time + " --> " + end_time)
         print(text)
         print()
 except Exception as e:
-    print(f"Error: {{e}}", file=sys.stderr)
+    print("Error: " + str(e), file=sys.stderr)
     sys.exit(1)
 "#,
         audio_path
