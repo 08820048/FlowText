@@ -33,24 +33,18 @@ let animationFrameId: number | null = null;
 // 切换右侧面板展开状态
 function toggleRightPanel(panelName?: string) {
   if (panelName) {
-    // 如果侧边栏收起，先展开侧边栏
-    if (sidebarCollapsed.value) {
-      sidebarCollapsed.value = false;
-      activePanel.value = panelName;
-      rightPanelExpanded.value = true;
-      return;
-    }
-
-    if (activePanel.value === panelName && rightPanelExpanded.value) {
-      // 如果点击的是当前激活的面板且已展开，则收起
+    if (activePanel.value === panelName && rightPanelExpanded.value && !sidebarCollapsed.value) {
+      // 点击当前激活面板 → 收起侧边栏
+      sidebarCollapsed.value = true;
       rightPanelExpanded.value = false;
     } else {
-      // 否则切换到该面板并展开
+      // 点击其他面板或收起状态 → 切换并展开
       activePanel.value = panelName;
       rightPanelExpanded.value = true;
+      sidebarCollapsed.value = false;
     }
   } else {
-    // 如果没有指定面板，则切换展开状态
+    // 没有指定面板名称，直接切换展开状态
     rightPanelExpanded.value = !rightPanelExpanded.value;
   }
 }
@@ -60,6 +54,9 @@ function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value;
   if (sidebarCollapsed.value) {
     rightPanelExpanded.value = false;
+  } else {
+    // 展开侧边栏时，自动展开面板
+    rightPanelExpanded.value = true;
   }
 }
 
@@ -163,8 +160,35 @@ onUnmounted(() => {
   <div class="main-layout">
     <!-- 顶部工具栏 -->
     <div class="app-header">
-      <!-- 预留空间用于未来功能 -->
+      <!-- 左侧预留空间 -->
+      <div class="header-left"></div>
+
+      <!-- 右侧功能图标 -->
       <div class="header-actions">
+        <div
+          class="header-icon"
+          :class="{ active: activePanel === 'recognition' }"
+          @click="toggleRightPanel('recognition')"
+          :title="sidebarCollapsed ? '展开侧边栏' : '语音识别'"
+        >
+          <el-icon size="18"><Microphone /></el-icon>
+        </div>
+        <div
+          class="header-icon"
+          :class="{ active: activePanel === 'subtitle' }"
+          @click="toggleRightPanel('subtitle')"
+          :title="sidebarCollapsed ? '展开侧边栏' : '字幕编辑'"
+        >
+          <el-icon size="18"><Edit /></el-icon>
+        </div>
+        <div
+          class="header-icon"
+          :class="{ active: activePanel === 'settings' }"
+          @click="toggleRightPanel('settings')"
+          :title="sidebarCollapsed ? '展开侧边栏' : '设置'"
+        >
+          <el-icon size="18"><Setting /></el-icon>
+        </div>
       </div>
     </div>
     
@@ -191,59 +215,17 @@ onUnmounted(() => {
       <div
         class="right-panel"
         :class="{ collapsed: sidebarCollapsed }"
-        :style="{ width: sidebarCollapsed ? '48px' : `${100 - leftPanelWidth}%` }"
+        :style="{ width: sidebarCollapsed ? '0' : `${100 - leftPanelWidth}%` }"
+        v-show="!sidebarCollapsed"
       >
-        <!-- 侧边栏图标区域 -->
-        <div class="sidebar-icons">
-          <div
-            class="sidebar-icon"
-            :class="{ active: activePanel === 'recognition' }"
-            @click="toggleRightPanel('recognition')"
-            :title="sidebarCollapsed ? '展开侧边栏' : '语音识别'"
-          >
-            <el-icon size="20"><Microphone /></el-icon>
-          </div>
-          <div
-            class="sidebar-icon"
-            :class="{ active: activePanel === 'subtitle' }"
-            @click="toggleRightPanel('subtitle')"
-            :title="sidebarCollapsed ? '展开侧边栏' : '字幕编辑'"
-          >
-            <el-icon size="20"><Edit /></el-icon>
-          </div>
-          <div
-            class="sidebar-icon"
-            :class="{ active: activePanel === 'settings' }"
-            @click="toggleRightPanel('settings')"
-            :title="sidebarCollapsed ? '展开侧边栏' : '设置'"
-          >
-            <el-icon size="20"><Setting /></el-icon>
-          </div>
-
-          <!-- 分隔线 -->
-          <div class="sidebar-divider"></div>
-
-          <!-- 收起/展开按钮 -->
-          <div
-            class="sidebar-icon collapse-sidebar-btn"
-            @click="toggleSidebar"
-            :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-          >
-            <el-icon size="16">
-              <ArrowLeft v-if="!sidebarCollapsed" />
-              <ArrowRight v-else />
-            </el-icon>
-          </div>
-        </div>
-
         <!-- 面板内容区域 -->
-        <div class="panel-content" v-show="rightPanelExpanded && !sidebarCollapsed">
+        <div class="panel-content" v-show="rightPanelExpanded">
           <div class="panel-header">
             <span class="panel-title">
               {{ activePanel === 'recognition' ? '语音识别' :
                  activePanel === 'subtitle' ? '字幕编辑' : '设置' }}
             </span>
-            <el-icon class="collapse-icon" @click="toggleRightPanel()" size="16">
+            <el-icon class="collapse-icon" @click="toggleSidebar" size="16" title="收起侧边栏">
               <ArrowRight />
             </el-icon>
           </div>
@@ -277,17 +259,47 @@ onUnmounted(() => {
 .app-header {
   background: #ffffff;
   color: #0fdc78;
-  padding: 8px 16px;
+  padding: 4px 16px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   border-bottom: 2px solid #0fdc78;
-  min-height: 40px;
+  height: 36px;
+  flex-shrink: 0;
+  /* 贴近窗口顶部 */
+  margin: 0;
+}
+
+.header-left {
+  flex: 1;
 }
 
 .header-actions {
   display: flex;
+  gap: 6px;
   align-items: center;
+}
+
+.header-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.header-icon:hover {
+  background: rgba(15, 220, 120, 0.1);
+  color: #0fdc78;
+}
+
+.header-icon.active {
+  background: #0fdc78;
+  color: #ffffff;
 }
 
 
@@ -388,7 +400,6 @@ onUnmounted(() => {
   display: flex;
   background: #ffffff;
   overflow: hidden;
-  min-width: 48px; /* 侧边栏图标宽度 */
   /* 优化拖拽性能 */
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -397,55 +408,9 @@ onUnmounted(() => {
 }
 
 .right-panel.collapsed {
-  width: 48px !important;
-  min-width: 48px;
-  max-width: 48px;
-}
-
-/* 侧边栏图标区域 */
-.sidebar-icons {
-  width: 48px;
-  background: #f8fafc;
-  border-left: 1px solid #e2e8f0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 0;
-  gap: 4px;
-}
-
-.sidebar-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  color: #64748b;
-}
-
-.sidebar-icon:hover {
-  background: rgba(15, 220, 120, 0.1);
-  color: #0fdc78;
-}
-
-.sidebar-icon.active {
-  background: #0fdc78;
-  color: #ffffff;
-}
-
-.sidebar-divider {
-  width: 32px;
-  height: 1px;
-  background: #e2e8f0;
-  margin: 8px 4px;
-}
-
-.collapse-sidebar-btn {
-  margin-top: auto;
-  margin-bottom: 8px;
+  width: 0 !important;
+  min-width: 0;
+  max-width: 0;
 }
 
 /* 面板内容区域 */
@@ -454,8 +419,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 250px;
-  border-left: 1px solid #e2e8f0;
   overflow: hidden;
+  width: 100%;
 }
 
 .panel-header {
@@ -521,18 +486,13 @@ onUnmounted(() => {
     min-width: unset;
   }
 
-  .sidebar-icons {
-    flex-direction: row;
-    width: 100%;
-    height: 48px;
-    padding: 0 8px;
-    justify-content: flex-start;
+  .header-actions {
+    gap: 4px;
   }
 
-  .collapse-sidebar-btn {
-    margin-top: 0;
-    margin-left: auto;
-    margin-bottom: 0;
+  .header-icon {
+    width: 24px;
+    height: 24px;
   }
 }
 
