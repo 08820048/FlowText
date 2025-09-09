@@ -817,8 +817,6 @@ if (import.meta.env.DEV) {
   color: #67C23A;
   opacity: 1;
   background: transparent;
-  border: 3px solid #67C23A;
-  border-radius: 50%;
   padding: 20px;
   transition: all 0.3s ease;
 }
@@ -826,7 +824,6 @@ if (import.meta.env.DEV) {
 .play-icon:hover {
   transform: scale(1.1);
   color: #5daf34;
-  border-color: #5daf34;
 }
 
 .integrated-controls {
