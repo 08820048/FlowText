@@ -718,8 +718,8 @@ async function cancelRecognitionProcess() {
           </el-button>
 
           <el-button
+            v-if="canCancelRecognition"
             type="danger"
-            :disabled="!canCancelRecognition"
             @click="cancelRecognitionProcess"
           >
             <el-icon><Close /></el-icon> 取消识别
