@@ -873,8 +873,8 @@ try:
 
     # 获取模型缓存路径
     cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
-    model_pattern = f"models--Systran--faster-whisper-{{model_size}}"
-    model_exists = any(cache_dir.glob(f"*{{model_pattern}}*")) if cache_dir.exists() else False
+    model_pattern = "models--Systran--faster-whisper-{model_size}"
+    model_exists = any(cache_dir.glob("*" + model_pattern + "*")) if cache_dir.exists() else False
 
     if not model_exists:
         print("DOWNLOAD_START", file=sys.stderr)
@@ -926,7 +926,7 @@ try:
                     # zhconv 转换器
                     text = converter(text)
             except Exception as e:
-                print(f"繁简转换失败: {{e}}", file=sys.stderr)
+                print("繁简转换失败: " + str(e), file=sys.stderr)
                 # 转换失败时保持原文
         elif original_language == "zh-tw" and text:
             # 繁体中文，不进行转换或转换为繁体

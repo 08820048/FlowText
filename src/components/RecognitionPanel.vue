@@ -116,12 +116,6 @@ const supportedEngines = ref([
     label: 'OpenAI Whisper',
     description: '原版Whisper，稳定可靠',
     icon: '🎯'
-  },
-  {
-    value: 'sensevoice',
-    label: 'SenseVoice',
-    description: '阿里巴巴模型，支持情感识别',
-    icon: '🧠'
   }
 ]);
 
@@ -203,13 +197,8 @@ function updateModelConfig(engine: RecognitionEngine) {
  */
 function updateAdvancedSettingsAvailability(model: ModelConfig) {
   // 重置高级设置
-  if (model.name === 'sensevoice') {
-    recognitionSettings.value.advancedSettings.enableEmotionRecognition = true;
-    recognitionSettings.value.advancedSettings.enableEventDetection = true;
-  } else {
-    recognitionSettings.value.advancedSettings.enableEmotionRecognition = false;
-    recognitionSettings.value.advancedSettings.enableEventDetection = false;
-  }
+  recognitionSettings.value.advancedSettings.enableEmotionRecognition = false;
+  recognitionSettings.value.advancedSettings.enableEventDetection = false;
 
   // 根据模型调整默认计算类型
   if (model.name === 'faster-whisper') {
@@ -384,8 +373,7 @@ function getModelSizeInfo(size: string) {
 function getInstallCommand(engine: RecognitionEngine): string {
   const commands = {
     'whisper': 'openai-whisper',
-    'faster-whisper': 'faster-whisper',
-    'sensevoice': 'funasr modelscope'
+    'faster-whisper': 'faster-whisper'
   };
   return commands[engine] || engine;
 }
@@ -400,8 +388,7 @@ function showInstallGuide() {
   const getOsSpecificGuide = (engine: RecognitionEngine) => {
     const baseCommands = {
       'whisper': 'openai-whisper',
-      'faster-whisper': 'faster-whisper',
-      'sensevoice': 'funasr modelscope'
+      'faster-whisper': 'faster-whisper'
     };
 
     const command = baseCommands[engine];
@@ -516,28 +503,6 @@ ${os === 'windows' ? `
 
 <h4>5. 验证安装：</h4>
 <pre><code>python -c "from faster_whisper import WhisperModel; print('Faster Whisper 安装成功')"</code></pre>
-
-<h4>可能遇到的问题：</h4>
-<ul>
-  <li><strong>权限问题：</strong>使用 <code>${pipCommand} --user ${command}</code></li>
-  <li><strong>网络问题：</strong>使用国内镜像 <code>${pipCommand} -i https://pypi.tuna.tsinghua.edu.cn/simple ${command}</code></li>
-</ul>
-        `
-      };
-    },
-    'sensevoice': () => {
-      const { pythonInstall, pipCommand, terminalName, command } = getOsSpecificGuide('sensevoice');
-      return {
-        title: `SenseVoice 安装指引 (${os.toUpperCase()})`,
-        content: `
-${pythonInstall}
-
-<h4>2. 安装 SenseVoice：</h4>
-<p>打开${terminalName}，运行以下命令：</p>
-<pre><code>${pipCommand} ${command}</code></pre>
-
-<h4>3. 验证安装：</h4>
-<pre><code>python -c "import funasr; print('SenseVoice 安装成功')"</code></pre>
 
 <h4>可能遇到的问题：</h4>
 <ul>
@@ -1104,7 +1069,7 @@ async function cancelRecognitionProcess() {
           </el-form-item>
 
           <!-- Temperature -->
-          <el-form-item label="Temperature" v-if="recognitionSettings.engine !== 'sensevoice'">
+          <el-form-item label="Temperature">
             <el-slider
               v-model="recognitionSettings.advancedSettings.temperature"
               :min="0"
@@ -1115,16 +1080,7 @@ async function cancelRecognitionProcess() {
             />
           </el-form-item>
 
-          <!-- SenseVoice 特有设置 -->
-          <template v-if="recognitionSettings.engine === 'sensevoice'">
-            <el-form-item label="情感识别">
-              <el-switch v-model="recognitionSettings.advancedSettings.enableEmotionRecognition" />
-            </el-form-item>
 
-            <el-form-item label="事件检测">
-              <el-switch v-model="recognitionSettings.advancedSettings.enableEventDetection" />
-            </el-form-item>
-          </template>
         </div>
 
         <el-form-item>
