@@ -355,24 +355,20 @@ async function cancelRecognitionProcess() {
 
 <template>
   <div class="recognition-panel">
-    <div class="panel-header">
-      <h3>语音识别</h3>
-    </div>
-    
     <div v-if="!videoStore.isVideoLoaded" class="no-video">
       <el-empty description="请先导入视频" />
     </div>
     
     <div v-else class="recognition-content">
-      <el-form label-width="100px">
+      <el-form label-width="80px" class="recognition-form">
         <el-form-item label="识别引擎">
-          <el-select v-model="recognitionSettings.engine" style="width: 100%">
+          <el-select v-model="recognitionSettings.engine" class="form-select">
             <el-option label="Whisper (本地)" value="whisper" />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="识别语言">
-          <el-select v-model="recognitionSettings.language" style="width: 100%">
+          <el-select v-model="recognitionSettings.language" class="form-select">
             <el-option
               v-for="lang in supportedLanguages"
               :key="lang.code"
@@ -438,18 +434,10 @@ async function cancelRecognitionProcess() {
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.panel-header h3 {
-  margin: 0;
+  padding: 20px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .no-video {
@@ -461,7 +449,48 @@ async function cancelRecognitionProcess() {
 }
 
 .recognition-content {
-  padding: 16px;
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+}
+
+.recognition-form {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 确保表单项正确布局 */
+:deep(.el-form-item) {
+  margin-bottom: 18px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:deep(.el-form-item__label) {
+  width: 80px !important;
+  flex-shrink: 0;
+}
+
+:deep(.el-form-item__content) {
+  flex: 1;
+  width: calc(100% - 80px);
+  max-width: calc(100% - 80px);
+  margin-left: 0 !important;
+}
+
+:deep(.el-select) {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+:deep(.el-select .el-input) {
+  width: 100% !important;
+}
+
+:deep(.el-input__wrapper) {
+  width: 100% !important;
+  box-sizing: border-box;
 }
 
 .recognition-status {

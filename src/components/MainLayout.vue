@@ -166,7 +166,7 @@ onUnmounted(() => {
           class="titlebar-icon"
           :class="{ active: activePanel === 'recognition' }"
           @click="toggleRightPanel('recognition')"
-          :title="sidebarCollapsed ? '展开侧边栏' : '语音识别'"
+          :title="sidebarCollapsed ? '展开' : '识别'"
         >
           <el-icon size="16"><Microphone /></el-icon>
         </div>
@@ -174,7 +174,7 @@ onUnmounted(() => {
           class="titlebar-icon"
           :class="{ active: activePanel === 'subtitle' }"
           @click="toggleRightPanel('subtitle')"
-          :title="sidebarCollapsed ? '展开侧边栏' : '字幕编辑'"
+          :title="sidebarCollapsed ? '展开' : '编辑'"
         >
           <el-icon size="16"><Edit /></el-icon>
         </div>
@@ -182,9 +182,18 @@ onUnmounted(() => {
           class="titlebar-icon"
           :class="{ active: activePanel === 'settings' }"
           @click="toggleRightPanel('settings')"
-          :title="sidebarCollapsed ? '展开侧边栏' : '设置'"
+          :title="sidebarCollapsed ? '展开' : '设置'"
         >
           <el-icon size="16"><Setting /></el-icon>
+        </div>
+        <!-- 收起侧边栏按钮 -->
+        <div
+          class="titlebar-icon collapse-btn"
+          v-show="!sidebarCollapsed"
+          @click="toggleSidebar"
+          :title="'收起'"
+        >
+          <el-icon size="16"><ArrowRight /></el-icon>
         </div>
       </div>
     </div>
@@ -214,26 +223,12 @@ onUnmounted(() => {
         class="right-panel"
         :class="{ collapsed: sidebarCollapsed }"
         :style="{ width: sidebarCollapsed ? '0' : `${100 - leftPanelWidth}%` }"
-        v-show="!sidebarCollapsed"
+        v-show="!sidebarCollapsed && rightPanelExpanded"
       >
-        <!-- 面板内容区域 -->
-        <div class="panel-content" v-show="rightPanelExpanded">
-          <div class="panel-header">
-            <span class="panel-title">
-              {{ activePanel === 'recognition' ? '语音识别' :
-                 activePanel === 'subtitle' ? '字幕编辑' : '设置' }}
-            </span>
-            <el-icon class="collapse-icon" @click="toggleSidebar" size="16" title="收起侧边栏">
-              <ArrowRight />
-            </el-icon>
-          </div>
-
-          <div class="panel-body">
-            <RecognitionPanel v-if="activePanel === 'recognition'" />
-            <SubtitleEditor v-if="activePanel === 'subtitle'" />
-            <SettingsPanel v-if="activePanel === 'settings'" />
-          </div>
-        </div>
+        <!-- 面板内容 -->
+        <RecognitionPanel v-if="activePanel === 'recognition'" />
+        <SubtitleEditor v-if="activePanel === 'subtitle'" />
+        <SettingsPanel v-if="activePanel === 'settings'" />
       </div>
     </div>
     
@@ -299,6 +294,17 @@ onUnmounted(() => {
 .titlebar-icon.active {
   background: #0fdc78;
   color: #ffffff;
+}
+
+.titlebar-icon.collapse-btn {
+  margin-left: 8px;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 8px;
+}
+
+.titlebar-icon.collapse-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 
@@ -399,9 +405,12 @@ onUnmounted(() => {
 
 .right-panel {
   display: flex;
+  flex-direction: column;
   background: #ffffff;
   overflow: hidden;
   height: 100%;
+  min-width: 250px;
+  position: relative;
   /* 优化拖拽性能 */
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -415,51 +424,7 @@ onUnmounted(() => {
   max-width: 0;
 }
 
-/* 面板内容区域 */
-.panel-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 250px;
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-}
 
-.panel-header {
-  height: 40px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-}
-
-.panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.collapse-icon {
-  cursor: pointer;
-  color: #64748b;
-  transition: all 0.2s ease;
-}
-
-.collapse-icon:hover {
-  color: #0fdc78;
-}
-
-.panel-body {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  height: 0; /* 强制flex子元素计算高度 */
-}
 
 
 
@@ -487,9 +452,7 @@ onUnmounted(() => {
     min-width: unset;
   }
 
-  .panel-content {
-    min-width: unset;
-  }
+
 
   .header-actions {
     gap: 4px;

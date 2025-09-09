@@ -361,20 +361,14 @@ function resetAllSettings() {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f8fafc;
+  background: #ffffff;
   padding: 20px;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .settings-content {
   flex: 1;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid rgba(99, 102, 241, 0.1);
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .setting-hint {
@@ -429,12 +423,12 @@ function resetAllSettings() {
 
 :deep(.el-tabs__header) {
   margin: 0;
-  background: #f8fafc;
+  background: transparent;
   padding: 0 16px;
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
-  border-bottom: 2px solid #0fdc78;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 :deep(.el-tabs__nav-wrap) {
@@ -442,27 +436,28 @@ function resetAllSettings() {
 }
 
 :deep(.el-tabs__item) {
-  color: #374151;
+  color: #6b7280;
   font-weight: 500;
   padding: 12px 16px;
   border: none;
-  transition: all 0.3s ease;
+  background: transparent;
+  transition: all 0.2s ease;
 }
 
 :deep(.el-tabs__item:hover) {
-  color: #0fdc78;
-  background: rgba(15, 220, 120, 0.1);
+  color: #374151;
+  background: transparent;
 }
 
 :deep(.el-tabs__item.is-active) {
   color: #0fdc78;
-  background: rgba(15, 220, 120, 0.15);
+  background: transparent;
   font-weight: 600;
 }
 
 :deep(.el-tabs__active-bar) {
   background: #0fdc78;
-  height: 3px;
+  height: 2px;
 }
 
 :deep(.el-tabs__content) {

@@ -1,7 +1,6 @@
 <template>
   <div class="subtitle-editor">
     <div class="editor-header">
-      <h3>字幕编辑</h3>
       <div class="header-actions">
         <el-button type="primary" size="small" @click="addNewSubtitle">
           添加字幕
@@ -512,25 +511,15 @@ async function confirmExportSubtitles() {
   flex-direction: column;
   padding: 20px;
   background: #ffffff;
+  overflow-y: auto;
 }
 
 .editor-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   margin-bottom: 20px;
-  padding: 16px 20px;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.editor-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #2c3e50;
+  padding: 12px 0;
 }
 
 .header-actions {
