@@ -158,39 +158,44 @@ onUnmounted(() => {
 
 <template>
   <div class="main-layout">
-    <!-- 顶部工具栏 -->
-    <div class="app-header">
-      <!-- 左侧预留空间 -->
-      <div class="header-left"></div>
+    <!-- 自定义标题栏 -->
+    <div class="custom-titlebar" data-tauri-drag-region>
+      <!-- 左侧应用标题区域 -->
+      <div class="titlebar-left" data-tauri-drag-region>
+        <span class="app-title">FlowText</span>
+      </div>
 
       <!-- 右侧功能图标 -->
-      <div class="header-actions">
+      <div class="titlebar-actions">
         <div
-          class="header-icon"
+          class="titlebar-icon"
           :class="{ active: activePanel === 'recognition' }"
           @click="toggleRightPanel('recognition')"
           :title="sidebarCollapsed ? '展开侧边栏' : '语音识别'"
         >
-          <el-icon size="18"><Microphone /></el-icon>
+          <el-icon size="16"><Microphone /></el-icon>
         </div>
         <div
-          class="header-icon"
+          class="titlebar-icon"
           :class="{ active: activePanel === 'subtitle' }"
           @click="toggleRightPanel('subtitle')"
           :title="sidebarCollapsed ? '展开侧边栏' : '字幕编辑'"
         >
-          <el-icon size="18"><Edit /></el-icon>
+          <el-icon size="16"><Edit /></el-icon>
         </div>
         <div
-          class="header-icon"
+          class="titlebar-icon"
           :class="{ active: activePanel === 'settings' }"
           @click="toggleRightPanel('settings')"
           :title="sidebarCollapsed ? '展开侧边栏' : '设置'"
         >
-          <el-icon size="18"><Setting /></el-icon>
+          <el-icon size="16"><Setting /></el-icon>
         </div>
       </div>
     </div>
+
+    <!-- 绿色分割线 -->
+    <div class="app-divider"></div>
     
     <!-- 主内容区 -->
     <div class="main-content" :class="{ dragging: isDragging }">
@@ -256,50 +261,71 @@ onUnmounted(() => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.app-header {
+/* 自定义标题栏 */
+.custom-titlebar {
+  height: 30px;
   background: #ffffff;
-  color: #0fdc78;
-  padding: 4px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #0fdc78;
-  height: 36px;
-  flex-shrink: 0;
-  /* 贴近窗口顶部 */
-  margin: 0;
+  padding: 0 16px;
+  /* 确保贴近窗口顶部 */
+  position: relative;
+  z-index: 1000;
+  /* 允许拖拽窗口 */
+  -webkit-app-region: drag;
 }
 
-.header-left {
+.titlebar-left {
   flex: 1;
-}
-
-.header-actions {
   display: flex;
-  gap: 6px;
   align-items: center;
 }
 
-.header-icon {
-  width: 28px;
-  height: 28px;
+.app-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  user-select: none;
+}
+
+.titlebar-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  /* 防止拖拽区域影响按钮点击 */
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-icon {
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  border-radius: 3px;
+  transition: all 0.15s ease;
   color: #64748b;
 }
 
-.header-icon:hover {
+.titlebar-icon:hover {
   background: rgba(15, 220, 120, 0.1);
   color: #0fdc78;
 }
 
-.header-icon.active {
+.titlebar-icon.active {
   background: #0fdc78;
   color: #ffffff;
+}
+
+/* 绿色分割线 */
+.app-divider {
+  height: 2px;
+  background: #0fdc78;
+  flex-shrink: 0;
+  /* 紧贴标题栏 */
+  margin: 0;
 }
 
 
