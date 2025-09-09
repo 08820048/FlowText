@@ -182,7 +182,7 @@ onMounted(() => {
 
 :deep(.el-tabs__header) {
   margin: 0;
-  background: #000000;
+  background: #f8fafc;
   border-bottom: 2px solid #0fdc78;
 }
 
@@ -192,7 +192,7 @@ onMounted(() => {
 
 :deep(.el-tabs__item) {
   font-weight: 500;
-  color: #ffffff;
+  color: #374151;
   border: none;
   padding: 16px 20px;
 }

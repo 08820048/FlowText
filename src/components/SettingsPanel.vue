@@ -429,11 +429,12 @@ function resetAllSettings() {
 
 :deep(.el-tabs__header) {
   margin: 0;
-  background: #667eea;
+  background: #f8fafc;
   padding: 0 16px;
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
+  border-bottom: 2px solid #0fdc78;
 }
 
 :deep(.el-tabs__nav-wrap) {
@@ -441,7 +442,7 @@ function resetAllSettings() {
 }
 
 :deep(.el-tabs__item) {
-  color: rgba(255, 255, 255, 0.8);
+  color: #374151;
   font-weight: 500;
   padding: 12px 16px;
   border: none;
@@ -449,16 +450,18 @@ function resetAllSettings() {
 }
 
 :deep(.el-tabs__item:hover) {
-  color: white;
+  color: #0fdc78;
+  background: rgba(15, 220, 120, 0.1);
 }
 
 :deep(.el-tabs__item.is-active) {
-  color: white;
-  background: rgba(255, 255, 255, 0.1);
+  color: #0fdc78;
+  background: rgba(15, 220, 120, 0.15);
+  font-weight: 600;
 }
 
 :deep(.el-tabs__active-bar) {
-  background: white;
+  background: #0fdc78;
   height: 3px;
 }
 
