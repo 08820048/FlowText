@@ -1141,10 +1141,10 @@ except Exception as e:
         model_size = params.model_config.size,
         device = params.model_config.device,
         audio_path = params.audio_path,
-        language = match params.language.as_str() {{
+        language = match params.language.as_str() {
             "zh-cn" | "zh-tw" | "zh" => "zh",
             _ => &params.language,
-        }}
+        }
     );
 
     // 执行Python脚本
