@@ -23,9 +23,7 @@ const loading = ref({
 // 当前默认引擎
 const defaultEngine = ref(settingsStore.settings.defaultEngine || 'faster-whisper');
 
-// 调试信息
-console.log('设置面板 - 当前默认引擎:', settingsStore.settings.defaultEngine);
-console.log('设置面板 - 完整设置:', settingsStore.settings);
+
 
 // 强制清除旧数据并重新初始化
 function forceResetSettings() {
@@ -348,72 +346,38 @@ function resetAllSettings() {
             </el-form-item>
           </el-form>
         </el-tab-pane>
-        
-        <!-- Whisper设置 -->
-        <el-tab-pane label="Whisper">
-          <div class="whisper-settings">
-            <el-alert
-              title="Whisper本地语音识别"
-              type="success"
-              :closable="false"
-              show-icon
-            >
-              <template #default>
-                <div>
-                  <p><strong>优势：</strong></p>
-                  <p>• 完全本地处理，无需网络连接</p>
-                  <p>• 支持任意大小的音频文件</p>
-                  <p>• 识别准确率高，支持多种语言</p>
-                  <p>• 无API调用限制和费用</p>
-                  <p>• 保护隐私，数据不会上传到云端</p>
-                  <br>
-                  <p><strong>支持的语言：</strong></p>
-                  <p>中文、英文、日文、韩文、法文、德文、西班牙文等100+种语言</p>
-                </div>
-              </template>
-            </el-alert>
 
-            <el-form label-width="100px" style="margin-top: 20px;">
-              <el-form-item label="模型大小">
-                <el-radio-group v-model="settingsStore.settings.whisperModel" @change="updateGeneralSettings">
-                  <el-radio-button label="tiny">Tiny</el-radio-button>
-                  <el-radio-button label="base">Base</el-radio-button>
-                  <el-radio-button label="small">Small</el-radio-button>
-                </el-radio-group>
-              </el-form-item>
-
-              <el-alert
-                title="关于Whisper"
-                type="info"
-                description="Whisper是OpenAI开发的开源语音识别模型，可以在本地运行，无需API密钥。模型大小影响识别精度和速度，Tiny最快但精度较低，Small最慢但精度最高。"
-                :closable="false"
-                show-icon
-              />
-            </el-form>
-          </div>
-        </el-tab-pane>
-        
         <!-- 关于 -->
         <el-tab-pane label="关于">
           <div class="about-content">
             <h2>FlowText - 智能视频字幕提取工具</h2>
-            <p>版本: 1.0.0</p>
-            <p>FlowText是一款桌面应用，用于从视频中提取音频并生成字幕。使用本地Whisper模型进行语音识别，完全离线处理，保护您的隐私。</p>
-            
-            <h3>主要功能</h3>
+            <p>版本: 2.0.0</p>
+            <p>FlowText是一款现代化桌面应用，支持多种AI语音识别模型，为视频内容创作者提供高效的字幕生成解决方案。</p>
+
+            <h3>核心特性</h3>
             <ul>
-              <li>视频导入和信息展示</li>
-              <li>音频提取</li>
-              <li>Whisper本地语音识别</li>
-              <li>字幕编辑和管理</li>
-              <li>多格式字幕导出</li>
+              <li>🎥 智能视频导入和信息展示</li>
+              <li>🎵 高质量音频提取</li>
+              <li>🤖 多模型AI语音识别（Faster Whisper、OpenAI Whisper、SenseVoice）</li>
+              <li>✏️ 实时字幕编辑和管理</li>
+              <li>📄 多格式字幕导出（SRT、ASS、VTT等）</li>
+              <li>🔧 智能配置推荐系统</li>
+              <li>🛡️ 完全本地处理，保护隐私</li>
             </ul>
-            
-            <h3>技术栈</h3>
+
+            <h3>支持的AI模型</h3>
+            <ul>
+              <li><strong>Faster Whisper</strong> - 优化版Whisper，速度提升4-5倍</li>
+              <li><strong>OpenAI Whisper</strong> - 原版Whisper，稳定可靠</li>
+              <li><strong>SenseVoice</strong> - 阿里巴巴模型，支持情感识别</li>
+            </ul>
+
+            <h3>技术架构</h3>
             <ul>
               <li>前端: Vue 3 + TypeScript + Element Plus</li>
               <li>桌面框架: Tauri 2.0</li>
               <li>后端: Rust</li>
+              <li>AI引擎: Python + PyTorch</li>
             </ul>
           </div>
         </el-tab-pane>
