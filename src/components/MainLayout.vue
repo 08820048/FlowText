@@ -237,6 +237,21 @@ onUnmounted(() => {
   </div>
 </template>
 
+<style>
+/* 全局样式重置 */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+</style>
+
 <style scoped>
 /* 扁平化UI风格 - 主题色：#0fdc78(绿色)、#000000(黑色)、#ffffff(白色) */
 .main-layout {
@@ -251,12 +266,12 @@ onUnmounted(() => {
 
 /* 自定义标题栏 */
 .custom-titlebar {
-  height: 32px;
+  height: 40px;
   background: transparent;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 0 16px;
+  padding: 8px 16px 0 16px;
   /* 确保在系统标题栏下方 */
   position: relative;
   z-index: 1000;

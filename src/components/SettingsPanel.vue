@@ -364,7 +364,7 @@ function resetAllSettings() {
   background: #ffffff;
   padding: 20px;
   box-sizing: border-box;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .settings-content {

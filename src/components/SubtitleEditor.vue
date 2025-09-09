@@ -511,7 +511,7 @@ async function confirmExportSubtitles() {
   flex-direction: column;
   padding: 20px;
   background: #ffffff;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .editor-header {
@@ -530,7 +530,7 @@ async function confirmExportSubtitles() {
 
 .editor-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
   background: white;
   border-radius: 8px;
   border: 1px solid #e9ecef;

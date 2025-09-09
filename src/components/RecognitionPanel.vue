@@ -435,7 +435,7 @@ async function cancelRecognitionProcess() {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  overflow-y: auto;
+  overflow: hidden;
   box-sizing: border-box;
   max-width: 100%;
 }
