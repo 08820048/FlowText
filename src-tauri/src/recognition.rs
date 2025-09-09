@@ -1207,7 +1207,7 @@ async fn call_local_whisper_with_config(
     if params.language == "zh" || params.language == "zh-CN" || params.language.is_empty() {
         cmd.arg("--language").arg("zh");
         cmd.arg("--initial_prompt").arg("以下是简体中文语音：");
-    } else {
+    } else if params.language != "auto" {
         let whisper_lang = match params.language.as_str() {
             "en" => "en",
             "ja" => "ja",
@@ -1216,10 +1216,13 @@ async fn call_local_whisper_with_config(
             "de" => "de",
             "es" => "es",
             "ru" => "ru",
-            _ => "auto",
+            "zh-cn" => "zh",
+            "zh-tw" => "zh",
+            _ => return Err(format!("不支持的语言: {}", params.language)),
         };
         cmd.arg("--language").arg(whisper_lang);
     }
+    // 如果是 "auto"，则不添加 --language 参数，让 Whisper 自动检测
 
     println!("执行whisper命令: {:?}", cmd);
 
