@@ -651,7 +651,7 @@ async function cancelRecognitionProcess() {
 
         <!-- 高级设置面板 -->
         <div v-show="showAdvancedSettings" class="advanced-settings">
-          <el-divider content-position="left">高级设置</el-divider>
+          <h4 class="advanced-title">高级设置</h4>
 
           <!-- 设备选择 -->
           <el-form-item label="计算设备">
@@ -959,6 +959,13 @@ async function cancelRecognitionProcess() {
   border-radius: 6px;
   padding: 16px;
   margin: 16px 0;
+}
+
+.advanced-title {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .advanced-toggle {
