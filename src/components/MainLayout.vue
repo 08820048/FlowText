@@ -160,11 +160,6 @@ onUnmounted(() => {
   <div class="main-layout">
     <!-- 自定义标题栏 -->
     <div class="custom-titlebar" data-tauri-drag-region>
-      <!-- 左侧应用标题区域 -->
-      <div class="titlebar-left" data-tauri-drag-region>
-        <span class="app-title">FlowText</span>
-      </div>
-
       <!-- 右侧功能图标 -->
       <div class="titlebar-actions">
         <div
@@ -266,9 +261,9 @@ onUnmounted(() => {
   height: 28px;
   background: transparent;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  padding: 0 16px;
+  padding: 0;
   /* 确保在系统标题栏内 */
   position: absolute;
   top: 0;
@@ -279,31 +274,14 @@ onUnmounted(() => {
   -webkit-app-region: drag;
 }
 
-.titlebar-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-
-.app-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  user-select: none;
-  /* 在macOS上，标题通常居中显示 */
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
 .titlebar-actions {
   display: flex;
   gap: 4px;
   align-items: center;
   /* 防止拖拽区域影响按钮点击 */
   -webkit-app-region: no-drag;
-  /* 在macOS上，为系统按钮留出空间 */
-  margin-right: 80px;
+  /* 更贴近右边，为系统按钮留出更少空间 */
+  margin-right: 72px;
 }
 
 .titlebar-icon {
@@ -435,6 +413,7 @@ onUnmounted(() => {
   display: flex;
   background: #ffffff;
   overflow: hidden;
+  height: 100%;
   /* 优化拖拽性能 */
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -456,6 +435,7 @@ onUnmounted(() => {
   min-width: 250px;
   overflow: hidden;
   width: 100%;
+  height: 100%;
 }
 
 .panel-header {
@@ -488,7 +468,9 @@ onUnmounted(() => {
 
 .panel-body {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 0; /* 强制flex子元素计算高度 */
 }
 
 
