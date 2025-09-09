@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Microphone, Close, InfoFilled, Setting } from '@element-plus/icons-vue';
 import { useVideoStore, useSettingsStore } from '../stores';
@@ -36,8 +36,8 @@ const availableModelSizes = ref<ModelSize[]>([]);
 const showAdvancedSettings = ref(false);
 
 // 模型状态
-const modelStatus = ref<Record<string, 'unknown' | 'available' | 'downloading' | 'not_available'>>({});
-const downloadProgress = ref<Record<string, number>>({});
+const modelStatus = ref<Record<string, 'unknown' | 'available' | 'not_available'>>({});
+const osInfo = ref<{ os: string; arch: string; platform: string }>({ os: 'unknown', arch: 'unknown', platform: 'unknown' });
 
 // 加载状态
 const loading = ref({
@@ -85,22 +85,10 @@ const canCancelRecognition = computed(() => {
   );
 });
 
-// 计算属性：当前模型是否需要下载
-const needsDownload = computed(() => {
+// 计算属性：当前模型是否需要安装
+const needsInstallation = computed(() => {
   const status = getModelStatus(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
   return status === 'not_available';
-});
-
-// 计算属性：是否正在下载
-const isDownloading = computed(() => {
-  const status = getModelStatus(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
-  return status === 'downloading';
-});
-
-// 计算属性：当前下载进度
-const currentDownloadProgress = computed(() => {
-  const key = `${recognitionSettings.value.engine}-${recognitionSettings.value.modelSize}`;
-  return downloadProgress.value[key] || 0;
 });
 
 // 支持的引擎列表
@@ -149,6 +137,11 @@ watch(() => recognitionSettings.value.engine, async (newEngine) => {
   // 检查当前选中模型大小的状态
   await checkModelSizeStatus(newEngine, recognitionSettings.value.modelSize);
 }, { immediate: true });
+
+// 组件初始化
+onMounted(async () => {
+  await initOsInfo();
+});
 
 // 监听模型大小变化，更新高级设置的可用选项
 watch(() => recognitionSettings.value.modelSize, async (newSize) => {
@@ -256,33 +249,14 @@ async function checkModelSizeStatus(engine: RecognitionEngine, size: string): Pr
 }
 
 /**
- * 下载模型
+ * 初始化操作系统信息
  */
-async function downloadModelSize(engine: RecognitionEngine, size: string): Promise<void> {
-  const key = `${engine}-${size}`;
-
+async function initOsInfo(): Promise<void> {
   try {
-    modelStatus.value[key] = 'downloading';
-    downloadProgress.value[key] = 0;
-
-    // 模拟下载进度（实际应该从后端获取）
-    const progressInterval = setInterval(() => {
-      if (downloadProgress.value[key] < 90) {
-        downloadProgress.value[key] += Math.random() * 10;
-      }
-    }, 500);
-
-    await ModelApi.downloadModel(engine, size);
-
-    clearInterval(progressInterval);
-    downloadProgress.value[key] = 100;
-    modelStatus.value[key] = 'available';
-
-    ElMessage.success(`${engine} ${size} 模型下载完成`);
+    osInfo.value = await ModelApi.getOsInfo();
+    console.log('操作系统信息:', osInfo.value);
   } catch (error) {
-    modelStatus.value[key] = 'not_available';
-    ElMessage.error(`模型下载失败: ${error}`);
-    throw error;
+    console.error('获取操作系统信息失败:', error);
   }
 }
 
@@ -301,30 +275,7 @@ async function onModelSizeChange(newSize: string) {
   await checkModelSizeStatus(recognitionSettings.value.engine, newSize);
 }
 
-/**
- * 下载当前选中的模型
- */
-async function downloadCurrentModel() {
-  try {
-    await downloadModelSize(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
-  } catch (error) {
-    console.error('下载模型失败:', error);
 
-    // 检查是否是模块未安装的错误
-    const errorMsg = error.toString();
-    if (errorMsg.includes('模块未安装') || errorMsg.includes('module not installed')) {
-      ElMessageBox.alert(
-        `${recognitionSettings.value.engine} 模块未安装。\n\n请在终端中运行以下命令安装：\n\npip install ${getInstallCommand(recognitionSettings.value.engine)}`,
-        '模块未安装',
-        {
-          confirmButtonText: '我知道了',
-          type: 'warning',
-          dangerouslyUseHTMLString: false
-        }
-      );
-    }
-  }
-}
 
 /**
  * 获取安装命令
@@ -343,78 +294,161 @@ function getInstallCommand(engine: RecognitionEngine): string {
  */
 function showInstallGuide() {
   const engine = recognitionSettings.value.engine;
-  const installCmd = getInstallCommand(engine);
+  const os = osInfo.value.os;
+
+  const getOsSpecificGuide = (engine: RecognitionEngine) => {
+    const baseCommands = {
+      'whisper': 'openai-whisper',
+      'faster-whisper': 'faster-whisper',
+      'sensevoice': 'funasr modelscope'
+    };
+
+    const command = baseCommands[engine];
+
+    let pythonInstall = '';
+    let pipCommand = 'pip install';
+    let terminalName = '终端';
+
+    switch (os) {
+      case 'macos':
+        pythonInstall = `
+<h4>1. 安装 Python（如果未安装）：</h4>
+<ul>
+  <li><strong>使用 Homebrew：</strong><code>brew install python</code></li>
+  <li><strong>从官网下载：</strong><a href="https://www.python.org/downloads/macos/" target="_blank">https://www.python.org/downloads/macos/</a></li>
+  <li><strong>使用 pyenv：</strong><code>pyenv install 3.11.0</code></li>
+</ul>`;
+        terminalName = '终端（Terminal）';
+        break;
+
+      case 'windows':
+        pythonInstall = `
+<h4>1. 安装 Python（如果未安装）：</h4>
+<ul>
+  <li><strong>从官网下载：</strong><a href="https://www.python.org/downloads/windows/" target="_blank">https://www.python.org/downloads/windows/</a></li>
+  <li><strong>使用 Microsoft Store：</strong>搜索 "Python" 并安装</li>
+  <li><strong>使用 Chocolatey：</strong><code>choco install python</code></li>
+</ul>`;
+        terminalName = '命令提示符（CMD）或 PowerShell';
+        pipCommand = 'python -m pip install';
+        break;
+
+      case 'linux':
+        pythonInstall = `
+<h4>1. 安装 Python（如果未安装）：</h4>
+<ul>
+  <li><strong>Ubuntu/Debian：</strong><code>sudo apt update && sudo apt install python3 python3-pip</code></li>
+  <li><strong>CentOS/RHEL：</strong><code>sudo yum install python3 python3-pip</code></li>
+  <li><strong>Arch Linux：</strong><code>sudo pacman -S python python-pip</code></li>
+</ul>`;
+        terminalName = '终端';
+        break;
+
+      default:
+        pythonInstall = `
+<h4>1. 安装 Python 3.8+：</h4>
+<p>请访问 <a href="https://www.python.org/downloads/" target="_blank">https://www.python.org/downloads/</a> 下载并安装 Python</p>`;
+    }
+
+    return {
+      pythonInstall,
+      pipCommand,
+      terminalName,
+      command
+    };
+  };
 
   const guides = {
-    'whisper': {
-      title: 'OpenAI Whisper 安装指引',
-      content: `
-<h4>安装步骤：</h4>
-<ol>
-  <li>确保已安装 Python 3.8+</li>
-  <li>在终端中运行：<code>pip install openai-whisper</code></li>
-  <li>等待安装完成</li>
-  <li>重新尝试下载模型</li>
-</ol>
+    'whisper': () => {
+      const { pythonInstall, pipCommand, terminalName, command } = getOsSpecificGuide('whisper');
+      return {
+        title: `OpenAI Whisper 安装指引 (${os.toUpperCase()})`,
+        content: `
+${pythonInstall}
+
+<h4>2. 安装 Whisper：</h4>
+<p>打开${terminalName}，运行以下命令：</p>
+<pre><code>${pipCommand} ${command}</code></pre>
+
+<h4>3. 验证安装：</h4>
+<pre><code>python -c "import whisper; print('Whisper 安装成功')"</code></pre>
 
 <h4>可能遇到的问题：</h4>
 <ul>
-  <li><strong>权限问题：</strong>尝试使用 <code>pip install --user openai-whisper</code></li>
-  <li><strong>网络问题：</strong>使用国内镜像 <code>pip install -i https://pypi.tuna.tsinghua.edu.cn/simple openai-whisper</code></li>
+  <li><strong>权限问题：</strong>使用 <code>${pipCommand} --user ${command}</code></li>
+  <li><strong>网络问题：</strong>使用国内镜像 <code>${pipCommand} -i https://pypi.tuna.tsinghua.edu.cn/simple ${command}</code></li>
+  <li><strong>依赖问题：</strong>可能需要安装 ffmpeg，${os === 'macos' ? '使用 <code>brew install ffmpeg</code>' : os === 'windows' ? '从 <a href="https://ffmpeg.org/download.html#build-windows" target="_blank">官网下载</a>' : '使用包管理器安装 <code>sudo apt install ffmpeg</code>'}</li>
 </ul>
-      `
+        `
+      };
     },
-    'faster-whisper': {
-      title: 'Faster Whisper 安装指引',
-      content: `
-<h4>安装步骤：</h4>
-<ol>
-  <li>确保已安装 Python 3.8+</li>
-  <li>在终端中运行：<code>pip install faster-whisper</code></li>
-  <li>等待安装完成</li>
-  <li>重新尝试下载模型</li>
-</ol>
+    'faster-whisper': () => {
+      const { pythonInstall, pipCommand, terminalName, command } = getOsSpecificGuide('faster-whisper');
+      return {
+        title: `Faster Whisper 安装指引 (${os.toUpperCase()})`,
+        content: `
+${pythonInstall}
 
-<h4>GPU 加速（可选）：</h4>
+<h4>2. 安装 Faster Whisper：</h4>
+<p>打开${terminalName}，运行以下命令：</p>
+<pre><code>${pipCommand} ${command}</code></pre>
+
+<h4>3. GPU 加速（可选）：</h4>
+${os === 'windows' ? `
 <ul>
-  <li>安装 CUDA 11.2+ 和 cuDNN 8+</li>
-  <li>使用 <code>pip install faster-whisper[gpu]</code></li>
-</ul>
+  <li>下载并安装 <a href="https://developer.nvidia.com/cuda-downloads" target="_blank">CUDA Toolkit</a></li>
+  <li>下载并安装 <a href="https://developer.nvidia.com/cudnn" target="_blank">cuDNN</a></li>
+  <li>重新安装：<code>${pipCommand} ${command}[gpu]</code></li>
+</ul>` : `
+<ul>
+  <li>安装 CUDA 和 cuDNN</li>
+  <li>重新安装：<code>${pipCommand} ${command}[gpu]</code></li>
+</ul>`}
+
+<h4>4. 验证安装：</h4>
+<pre><code>python -c "from faster_whisper import WhisperModel; print('Faster Whisper 安装成功')"</code></pre>
 
 <h4>可能遇到的问题：</h4>
 <ul>
-  <li><strong>权限问题：</strong>尝试使用 <code>pip install --user faster-whisper</code></li>
-  <li><strong>网络问题：</strong>使用国内镜像 <code>pip install -i https://pypi.tuna.tsinghua.edu.cn/simple faster-whisper</code></li>
+  <li><strong>权限问题：</strong>使用 <code>${pipCommand} --user ${command}</code></li>
+  <li><strong>网络问题：</strong>使用国内镜像 <code>${pipCommand} -i https://pypi.tuna.tsinghua.edu.cn/simple ${command}</code></li>
 </ul>
-      `
+        `
+      };
     },
-    'sensevoice': {
-      title: 'SenseVoice 安装指引',
-      content: `
-<h4>安装步骤：</h4>
-<ol>
-  <li>确保已安装 Python 3.8+</li>
-  <li>在终端中运行：<code>pip install funasr modelscope</code></li>
-  <li>等待安装完成</li>
-  <li>重新尝试下载模型</li>
-</ol>
+    'sensevoice': () => {
+      const { pythonInstall, pipCommand, terminalName, command } = getOsSpecificGuide('sensevoice');
+      return {
+        title: `SenseVoice 安装指引 (${os.toUpperCase()})`,
+        content: `
+${pythonInstall}
+
+<h4>2. 安装 SenseVoice：</h4>
+<p>打开${terminalName}，运行以下命令：</p>
+<pre><code>${pipCommand} ${command}</code></pre>
+
+<h4>3. 验证安装：</h4>
+<pre><code>python -c "import funasr; print('SenseVoice 安装成功')"</code></pre>
 
 <h4>可能遇到的问题：</h4>
 <ul>
-  <li><strong>权限问题：</strong>尝试使用 <code>pip install --user funasr modelscope</code></li>
-  <li><strong>网络问题：</strong>使用国内镜像 <code>pip install -i https://pypi.tuna.tsinghua.edu.cn/simple funasr modelscope</code></li>
+  <li><strong>权限问题：</strong>使用 <code>${pipCommand} --user ${command}</code></li>
+  <li><strong>网络问题：</strong>使用国内镜像 <code>${pipCommand} -i https://pypi.tuna.tsinghua.edu.cn/simple ${command}</code></li>
 </ul>
-      `
+        `
+      };
     }
   };
 
-  const guide = guides[engine];
+  const guide = guides[engine]?.();
   if (guide) {
     ElMessageBox.alert(guide.content, guide.title, {
       confirmButtonText: '我知道了',
       dangerouslyUseHTMLString: true,
       customStyle: {
-        width: '600px'
+        width: '700px',
+        maxHeight: '80vh',
+        overflow: 'auto'
       }
     });
   }
@@ -509,12 +543,7 @@ async function startRecognitionProcess() {
   // 检查模型是否可用
   const modelStatus = getModelStatus(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
   if (modelStatus === 'not_available') {
-    ElMessage.error('所选模型未下载，请先下载模型');
-    return;
-  }
-
-  if (modelStatus === 'downloading') {
-    ElMessage.warning('模型正在下载中，请等待下载完成');
+    ElMessage.error('所选模型未安装，请先安装相关模块');
     return;
   }
 
@@ -843,21 +872,14 @@ async function cancelRecognitionProcess() {
                       type="success"
                       size="small"
                     >
-                      已下载
-                    </el-tag>
-                    <el-tag
-                      v-else-if="getModelStatus(recognitionSettings.engine, size.id) === 'downloading'"
-                      type="warning"
-                      size="small"
-                    >
-                      下载中
+                      已安装
                     </el-tag>
                     <el-tag
                       v-else-if="getModelStatus(recognitionSettings.engine, size.id) === 'not_available'"
                       type="danger"
                       size="small"
                     >
-                      未下载
+                      未安装
                     </el-tag>
                   </div>
                   <div class="size-desc">{{ size.description }}</div>
@@ -870,40 +892,25 @@ async function cancelRecognitionProcess() {
           </el-select>
         </el-form-item>
 
-        <!-- 模型下载提示 -->
-        <el-form-item v-if="needsDownload">
+        <!-- 模型安装提示 -->
+        <el-form-item v-if="needsInstallation">
           <el-alert
-            :title="`${recognitionSettings.engine} ${recognitionSettings.modelSize} 模型未下载`"
+            :title="`${recognitionSettings.engine} 模块未安装`"
             type="warning"
             :closable="false"
             show-icon
           >
             <template #default>
-              <p>该模型需要先下载才能使用。</p>
+              <p>该语音识别模块需要先安装才能使用。请按照安装指引完成安装。</p>
               <div style="margin-top: 12px;">
                 <el-button
                   type="primary"
                   size="small"
-                  :loading="isDownloading"
-                  @click="downloadCurrentModel"
-                >
-                  {{ isDownloading ? '下载中...' : '下载模型' }}
-                </el-button>
-                <el-button
-                  type="info"
-                  size="small"
                   @click="showInstallGuide"
-                  style="margin-left: 8px;"
                 >
-                  安装指引
+                  查看安装指引
                 </el-button>
               </div>
-              <el-progress
-                v-if="isDownloading && currentDownloadProgress > 0"
-                :percentage="currentDownloadProgress"
-                :stroke-width="6"
-                style="margin-top: 12px;"
-              />
             </template>
           </el-alert>
         </el-form-item>

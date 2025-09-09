@@ -46,14 +46,15 @@ export class ModelApi {
   }
 
   /**
-   * 下载模型
+   * 获取操作系统信息
    */
-  static async downloadModel(engine: string, size: string): Promise<void> {
+  static async getOsInfo(): Promise<{ os: string; arch: string; platform: string }> {
     try {
-      await invoke<void>('download_model', { engine, size });
+      const osInfo = await invoke<{ os: string; arch: string; platform: string }>('get_os_info');
+      return osInfo;
     } catch (error) {
-      console.error('下载模型失败:', error);
-      throw new Error(`下载模型失败: ${error}`);
+      console.error('获取操作系统信息失败:', error);
+      return { os: 'unknown', arch: 'unknown', platform: 'unknown' };
     }
   }
 

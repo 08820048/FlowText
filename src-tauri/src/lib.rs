@@ -116,10 +116,8 @@ async fn check_model_size_available(engine: String, size: String) -> Result<bool
 }
 
 #[tauri::command]
-async fn download_model(engine: String, size: String) -> Result<(), String> {
-    recognition::download_model(&engine, &size)
-        .await
-        .map_err(|e| e.to_string())
+async fn get_os_info() -> Result<serde_json::Value, String> {
+    recognition::get_os_info().map_err(|e| e.to_string())
 }
 
 pub fn run() {
@@ -144,7 +142,7 @@ pub fn run() {
             check_model_installation,
             get_model_info,
             check_model_size_available,
-            download_model
+            get_os_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

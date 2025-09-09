@@ -577,101 +577,16 @@ except Exception as e:
     }
 }
 
-/// 下载模型
-pub async fn download_model(
-    engine: &str,
-    size: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match engine {
-        "whisper" => {
-            // 下载Whisper模型
-            let python_script = format!(
-                r#"
-import whisper
-print(f"开始下载 Whisper {} 模型...")
-try:
-    model = whisper.load_model("{}")
-    print("模型下载完成")
-except Exception as e:
-    print(f"下载失败: {{e}}")
-    raise e
-"#,
-                size, size
-            );
+/// 获取操作系统信息
+pub fn get_os_info() -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
 
-            let output = std::process::Command::new("python3")
-                .arg("-c")
-                .arg(&python_script)
-                .output()?;
-
-            if !output.status.success() {
-                let error_msg = String::from_utf8_lossy(&output.stderr);
-                return Err(format!("Whisper模型下载失败: {}", error_msg).into());
-            }
-        }
-        "faster-whisper" => {
-            // 首先检查是否安装了faster-whisper
-            let check_script = r#"
-try:
-    import faster_whisper
-    print("module_available")
-except ImportError:
-    print("module_not_available")
-"#;
-
-            let check_output = std::process::Command::new("python3")
-                .arg("-c")
-                .arg(&check_script)
-                .output()?;
-
-            let check_result = String::from_utf8_lossy(&check_output.stdout);
-
-            if !check_result.contains("module_available") {
-                return Err(
-                    "faster-whisper模块未安装。请先安装: pip install faster-whisper".into(),
-                );
-            }
-
-            // 下载Faster-Whisper模型
-            let python_script = format!(
-                r#"
-from faster_whisper import WhisperModel
-print(f"开始下载 Faster-Whisper {} 模型...")
-try:
-    model = WhisperModel("{}", device="cpu")
-    print("模型下载完成")
-except Exception as e:
-    print(f"下载失败: {{e}}")
-    raise e
-"#,
-                size, size
-            );
-
-            let output = std::process::Command::new("python3")
-                .arg("-c")
-                .arg(&python_script)
-                .output()?;
-
-            if !output.status.success() {
-                let error_msg = String::from_utf8_lossy(&output.stderr);
-                let stdout_msg = String::from_utf8_lossy(&output.stdout);
-                return Err(format!(
-                    "Faster-Whisper模型下载失败:\n错误: {}\n输出: {}",
-                    error_msg, stdout_msg
-                )
-                .into());
-            }
-        }
-        "sensevoice" => {
-            // SenseVoice模型下载（需要根据实际情况实现）
-            println!("SenseVoice模型下载功能待实现");
-        }
-        _ => {
-            return Err(format!("不支持的模型引擎: {}", engine).into());
-        }
-    }
-
-    Ok(())
+    Ok(serde_json::json!({
+        "os": os,
+        "arch": arch,
+        "platform": format!("{}-{}", os, arch)
+    }))
 }
 
 /// 获取模型详细信息
