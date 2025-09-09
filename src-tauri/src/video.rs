@@ -269,6 +269,33 @@ pub fn export_subtitles_to_path(
     }
 }
 
+/// 获取默认导出路径
+pub fn get_default_export_path() -> Result<String, String> {
+    use std::env;
+
+    // 尝试获取用户桌面路径
+    if let Some(home_dir) = dirs::home_dir() {
+        let desktop_path = home_dir.join("Desktop");
+        if desktop_path.exists() {
+            return Ok(desktop_path.to_string_lossy().to_string());
+        }
+
+        // 如果桌面不存在，使用文档文件夹
+        let documents_path = home_dir.join("Documents");
+        if documents_path.exists() {
+            return Ok(documents_path.to_string_lossy().to_string());
+        }
+
+        // 如果都不存在，使用用户主目录
+        return Ok(home_dir.to_string_lossy().to_string());
+    }
+
+    // 最后的备选方案：使用当前工作目录
+    env::current_dir()
+        .map(|path| path.to_string_lossy().to_string())
+        .map_err(|e| format!("无法获取当前目录: {}", e))
+}
+
 /// 打开文件夹
 pub fn open_folder(path: &str) -> Result<(), String> {
     use std::process::Command;

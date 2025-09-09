@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { FolderOpened } from '@element-plus/icons-vue';
 import { useSettingsStore } from '../stores';
@@ -7,6 +7,7 @@ import { validateApiKeys } from '../utils/recognitionUtils';
 import { ProgressMonitor } from '../utils/progressMonitor';
 import { ErrorHandler, ErrorType, ErrorSeverity } from '../utils/errorHandler';
 import { themeManager } from '../utils/themeManager';
+import { getDefaultExportPath } from '../utils/videoUtils';
 import type { RecognitionEngine } from '../types';
 
 // 引入设置存储
@@ -44,6 +45,9 @@ const autoSaveInterval = ref(settingsStore.settings.autoSaveInterval);
 
 // 字幕导出路径
 const exportPath = ref(settingsStore.settings.exportPath || '');
+
+// 默认导出路径
+const defaultExportPath = ref('');
 
 // 云服务API密钥相关功能已移除，只保留本地Whisper识别
 
@@ -139,6 +143,23 @@ function resetExportPath() {
   updateGeneralSettings();
   ElMessage.success('已重置为默认路径');
 }
+
+/**
+ * 获取默认导出路径
+ */
+async function loadDefaultExportPath() {
+  try {
+    defaultExportPath.value = await getDefaultExportPath();
+  } catch (error) {
+    console.error('获取默认导出路径失败:', error);
+    defaultExportPath.value = '应用程序目录';
+  }
+}
+
+// 组件挂载时获取默认路径
+onMounted(() => {
+  loadDefaultExportPath();
+});
 
 /**
  * 重置所有设置
@@ -239,8 +260,8 @@ function resetAllSettings() {
               <div class="export-path-container">
                 <div class="export-path-input-row">
                   <el-input
-                    v-model="exportPath"
-                    :placeholder="exportPath ? '' : '默认路径（留空使用系统默认位置）'"
+                    :value="exportPath || defaultExportPath"
+                    :placeholder="exportPath ? '' : `默认路径: ${defaultExportPath}`"
                     readonly
                     style="flex: 1; margin-right: 8px;"
                   />
@@ -255,7 +276,7 @@ function resetAllSettings() {
                 </div>
               </div>
               <div class="setting-hint">
-                设置字幕文件的默认导出位置，留空则使用应用程序目录
+                设置字幕文件的导出位置。未设置时将使用默认路径：{{ defaultExportPath }}
               </div>
             </el-form-item>
 

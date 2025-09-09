@@ -153,6 +153,19 @@ export async function importSubtitles(filePath: string): Promise<Subtitle[]> {
 }
 
 /**
+ * 获取默认导出路径
+ * @returns 默认导出路径
+ */
+export async function getDefaultExportPath(): Promise<string> {
+  try {
+    return await invoke<string>('get_default_export_path');
+  } catch (error) {
+    console.error('获取默认导出路径失败:', error);
+    throw new Error(`获取默认导出路径失败: ${error}`);
+  }
+}
+
+/**
  * 生成唯一ID
  * @returns 唯一ID字符串
  */
