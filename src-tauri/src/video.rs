@@ -41,7 +41,9 @@ pub struct AudioTrack {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Subtitle {
     pub id: String,
+    #[serde(alias = "startTime")]
     pub start_time: f64,
+    #[serde(alias = "endTime")]
     pub end_time: f64,
     pub text: String,
 }
@@ -49,18 +51,18 @@ pub struct Subtitle {
 /// 获取视频文件信息#[tauri::command]
 pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
     use serde_json::Value;
-    
+
     println!("[DEBUG] 开始获取视频信息: {}", file_path);
-    
+
     // 检查文件是否存在
     if !std::path::Path::new(file_path).exists() {
         let error_msg = format!("文件不存在: {}", file_path);
         println!("[ERROR] {}", error_msg);
         return Err(error_msg);
     }
-    
+
     println!("[DEBUG] 文件存在，开始执行ffprobe");
-    
+
     // 使用ffprobe获取视频信息
     let output = Command::new("ffprobe")
         .arg("-v")
@@ -74,7 +76,10 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
         .map_err(|e| format!("执行ffprobe失败: {}", e))?;
 
     if !output.status.success() {
-        let error_msg = format!("ffprobe执行失败: {}", String::from_utf8_lossy(&output.stderr));
+        let error_msg = format!(
+            "ffprobe执行失败: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         println!("[ERROR] {}", error_msg);
         return Err(error_msg);
     }
@@ -84,20 +89,19 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
     // 解析JSON输出
     let json_str = String::from_utf8_lossy(&output.stdout);
     println!("[DEBUG] ffprobe输出长度: {} 字符", json_str.len());
-    let json: Value = serde_json::from_str(&json_str)
-        .map_err(|e| format!("解析ffprobe输出失败: {}", e))?;
+    let json: Value =
+        serde_json::from_str(&json_str).map_err(|e| format!("解析ffprobe输出失败: {}", e))?;
 
     // 获取格式信息
-    let format = json["format"].as_object()
-        .ok_or("无法获取格式信息")?;
-    
-    let duration = format["duration"].as_str()
+    let format = json["format"].as_object().ok_or("无法获取格式信息")?;
+
+    let duration = format["duration"]
+        .as_str()
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
     // 获取流信息
-    let streams = json["streams"].as_array()
-        .ok_or("无法获取流信息")?;
+    let streams = json["streams"].as_array().ok_or("无法获取流信息")?;
 
     let mut width = 0;
     let mut height = 0;
@@ -107,11 +111,11 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
 
     for (index, stream) in streams.iter().enumerate() {
         let codec_type = stream["codec_type"].as_str().unwrap_or("");
-        
+
         if codec_type == "video" && width == 0 && height == 0 {
             width = stream["width"].as_i64().unwrap_or(0) as i32;
             height = stream["height"].as_i64().unwrap_or(0) as i32;
-            
+
             // 获取帧率
             if let Some(r_frame_rate) = stream["r_frame_rate"].as_str() {
                 if let Some((num, den)) = r_frame_rate.split_once('/') {
@@ -122,16 +126,23 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
                     }
                 }
             }
-            
+
             // 获取编码信息
-            codec_info = stream["codec_name"].as_str().unwrap_or("unknown").to_string();
+            codec_info = stream["codec_name"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string();
         } else if codec_type == "audio" {
             let track = AudioTrack {
                 id: index as u32,
                 language: stream["tags"]["language"].as_str().map(|s| s.to_string()),
-                codec_info: stream["codec_name"].as_str().unwrap_or("unknown").to_string(),
+                codec_info: stream["codec_name"]
+                    .as_str()
+                    .unwrap_or("unknown")
+                    .to_string(),
                 channels: stream["channels"].as_i64().unwrap_or(2) as u32,
-                sample_rate: stream["sample_rate"].as_str()
+                sample_rate: stream["sample_rate"]
+                    .as_str()
                     .and_then(|s| s.parse::<u32>().ok())
                     .unwrap_or(44100),
             };
@@ -166,9 +177,12 @@ pub fn get_video_info(file_path: &str) -> Result<VideoInfo, String> {
         codec_info: codec_info.clone(),
         audio_tracks,
     };
-    
-    println!("[DEBUG] 视频信息获取成功: {} ({}x{}, {:.2}s)", file_name, width, height, duration);
-    
+
+    println!(
+        "[DEBUG] 视频信息获取成功: {} ({}x{}, {:.2}s)",
+        file_name, width, height, duration
+    );
+
     Ok(video_info)
 }
 
@@ -215,7 +229,11 @@ pub fn extract_audio(video_path: &str, audio_track_id: u32) -> Result<String, St
 }
 
 /// 导出字幕到文件
-pub fn export_subtitles(subtitles: &[Subtitle], format: &str, file_name: &str) -> Result<String, String> {
+pub fn export_subtitles(
+    subtitles: &[Subtitle],
+    format: &str,
+    file_name: &str,
+) -> Result<String, String> {
     match format.to_lowercase().as_str() {
         "srt" => export_srt(subtitles, file_name),
         "vtt" => export_vtt(subtitles, file_name),
@@ -253,27 +271,36 @@ fn export_ass(subtitles: &[Subtitle], file_name: &str) -> Result<String, String>
 
     // 写入ASS头部
     writeln!(file, "[Script Info]").map_err(|e| format!("写入文件失败: {}", e))?;
-    writeln!(file, "Title: FlowText Generated Subtitles").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "Title: FlowText Generated Subtitles")
+        .map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file, "ScriptType: v4.00+").map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file, "WrapStyle: 0").map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file, "ScaledBorderAndShadow: yes").map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file, "YCbCr Matrix: TV.601").map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
-    
+
     writeln!(file, "[V4+ Styles]").map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file, "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding").map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file, "Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1").map_err(|e| format!("写入文件失败: {}", e))?;
     writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
-    
+
     writeln!(file, "[Events]").map_err(|e| format!("写入文件失败: {}", e))?;
-    writeln!(file, "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(
+        file,
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
+    )
+    .map_err(|e| format!("写入文件失败: {}", e))?;
 
     for subtitle in subtitles {
         let start = format_time_ass(subtitle.start_time);
         let end = format_time_ass(subtitle.end_time);
-        
-        writeln!(file, "Dialogue: 0,{},{},Default,,0,0,0,,{}", start, end, subtitle.text)
-            .map_err(|e| format!("写入文件失败: {}", e))?;
+
+        writeln!(
+            file,
+            "Dialogue: 0,{},{},Default,,0,0,0,,{}",
+            start, end, subtitle.text
+        )
+        .map_err(|e| format!("写入文件失败: {}", e))?;
     }
 
     Ok(path)
@@ -287,7 +314,7 @@ fn export_txt(subtitles: &[Subtitle], file_name: &str) -> Result<String, String>
     for subtitle in subtitles {
         let start = format_time_srt(subtitle.start_time);
         let end = format_time_srt(subtitle.end_time);
-        
+
         writeln!(file, "[{}] - [{}]", start, end).map_err(|e| format!("写入文件失败: {}", e))?;
         writeln!(file, "{}", subtitle.text).map_err(|e| format!("写入文件失败: {}", e))?;
         writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
@@ -299,11 +326,10 @@ fn export_txt(subtitles: &[Subtitle], file_name: &str) -> Result<String, String>
 /// 导出JSON格式字幕
 fn export_json(subtitles: &[Subtitle], file_name: &str) -> Result<String, String> {
     let path = format!("{}.json", file_name);
-    let json_data = serde_json::to_string_pretty(subtitles)
-        .map_err(|e| format!("序列化JSON失败: {}", e))?;
-    
-    std::fs::write(&path, json_data)
-        .map_err(|e| format!("写入文件失败: {}", e))?;
+    let json_data =
+        serde_json::to_string_pretty(subtitles).map_err(|e| format!("序列化JSON失败: {}", e))?;
+
+    std::fs::write(&path, json_data).map_err(|e| format!("写入文件失败: {}", e))?;
 
     Ok(path)
 }
@@ -314,8 +340,11 @@ fn format_time_ass(seconds: f64) -> String {
     let minutes = ((seconds % 3600.0) / 60.0) as i32;
     let secs = seconds % 60.0;
     let centiseconds = ((secs - secs.floor()) * 100.0) as i32;
-    
-    format!("{}:{:02}:{:02}.{:02}", hours, minutes, secs as i32, centiseconds)
+
+    format!(
+        "{}:{:02}:{:02}.{:02}",
+        hours, minutes, secs as i32, centiseconds
+    )
 }
 
 /// 导出WebVTT格式字幕
