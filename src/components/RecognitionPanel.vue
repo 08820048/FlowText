@@ -309,6 +309,114 @@ async function downloadCurrentModel() {
     await downloadModelSize(recognitionSettings.value.engine, recognitionSettings.value.modelSize);
   } catch (error) {
     console.error('下载模型失败:', error);
+
+    // 检查是否是模块未安装的错误
+    const errorMsg = error.toString();
+    if (errorMsg.includes('模块未安装') || errorMsg.includes('module not installed')) {
+      ElMessageBox.alert(
+        `${recognitionSettings.value.engine} 模块未安装。\n\n请在终端中运行以下命令安装：\n\npip install ${getInstallCommand(recognitionSettings.value.engine)}`,
+        '模块未安装',
+        {
+          confirmButtonText: '我知道了',
+          type: 'warning',
+          dangerouslyUseHTMLString: false
+        }
+      );
+    }
+  }
+}
+
+/**
+ * 获取安装命令
+ */
+function getInstallCommand(engine: RecognitionEngine): string {
+  const commands = {
+    'whisper': 'openai-whisper',
+    'faster-whisper': 'faster-whisper',
+    'sensevoice': 'funasr modelscope'
+  };
+  return commands[engine] || engine;
+}
+
+/**
+ * 显示安装指引
+ */
+function showInstallGuide() {
+  const engine = recognitionSettings.value.engine;
+  const installCmd = getInstallCommand(engine);
+
+  const guides = {
+    'whisper': {
+      title: 'OpenAI Whisper 安装指引',
+      content: `
+<h4>安装步骤：</h4>
+<ol>
+  <li>确保已安装 Python 3.8+</li>
+  <li>在终端中运行：<code>pip install openai-whisper</code></li>
+  <li>等待安装完成</li>
+  <li>重新尝试下载模型</li>
+</ol>
+
+<h4>可能遇到的问题：</h4>
+<ul>
+  <li><strong>权限问题：</strong>尝试使用 <code>pip install --user openai-whisper</code></li>
+  <li><strong>网络问题：</strong>使用国内镜像 <code>pip install -i https://pypi.tuna.tsinghua.edu.cn/simple openai-whisper</code></li>
+</ul>
+      `
+    },
+    'faster-whisper': {
+      title: 'Faster Whisper 安装指引',
+      content: `
+<h4>安装步骤：</h4>
+<ol>
+  <li>确保已安装 Python 3.8+</li>
+  <li>在终端中运行：<code>pip install faster-whisper</code></li>
+  <li>等待安装完成</li>
+  <li>重新尝试下载模型</li>
+</ol>
+
+<h4>GPU 加速（可选）：</h4>
+<ul>
+  <li>安装 CUDA 11.2+ 和 cuDNN 8+</li>
+  <li>使用 <code>pip install faster-whisper[gpu]</code></li>
+</ul>
+
+<h4>可能遇到的问题：</h4>
+<ul>
+  <li><strong>权限问题：</strong>尝试使用 <code>pip install --user faster-whisper</code></li>
+  <li><strong>网络问题：</strong>使用国内镜像 <code>pip install -i https://pypi.tuna.tsinghua.edu.cn/simple faster-whisper</code></li>
+</ul>
+      `
+    },
+    'sensevoice': {
+      title: 'SenseVoice 安装指引',
+      content: `
+<h4>安装步骤：</h4>
+<ol>
+  <li>确保已安装 Python 3.8+</li>
+  <li>在终端中运行：<code>pip install funasr modelscope</code></li>
+  <li>等待安装完成</li>
+  <li>重新尝试下载模型</li>
+</ol>
+
+<h4>可能遇到的问题：</h4>
+<ul>
+  <li><strong>权限问题：</strong>尝试使用 <code>pip install --user funasr modelscope</code></li>
+  <li><strong>网络问题：</strong>使用国内镜像 <code>pip install -i https://pypi.tuna.tsinghua.edu.cn/simple funasr modelscope</code></li>
+</ul>
+      `
+    }
+  };
+
+  const guide = guides[engine];
+  if (guide) {
+    ElMessageBox.alert(guide.content, guide.title, {
+      confirmButtonText: '我知道了',
+      dangerouslyUseHTMLString: true,
+      customStyle: {
+        width: '600px'
+      }
+    });
   }
 }
 
@@ -771,21 +879,30 @@ async function cancelRecognitionProcess() {
             show-icon
           >
             <template #default>
-              <p>该模型需要先下载才能使用。点击下载按钮开始下载。</p>
-              <el-button
-                type="primary"
-                size="small"
-                :loading="isDownloading"
-                @click="downloadCurrentModel"
-                style="margin-top: 8px;"
-              >
-                {{ isDownloading ? '下载中...' : '下载模型' }}
-              </el-button>
+              <p>该模型需要先下载才能使用。</p>
+              <div style="margin-top: 12px;">
+                <el-button
+                  type="primary"
+                  size="small"
+                  :loading="isDownloading"
+                  @click="downloadCurrentModel"
+                >
+                  {{ isDownloading ? '下载中...' : '下载模型' }}
+                </el-button>
+                <el-button
+                  type="info"
+                  size="small"
+                  @click="showInstallGuide"
+                  style="margin-left: 8px;"
+                >
+                  安装指引
+                </el-button>
+              </div>
               <el-progress
                 v-if="isDownloading && currentDownloadProgress > 0"
                 :percentage="currentDownloadProgress"
                 :stroke-width="6"
-                style="margin-top: 8px;"
+                style="margin-top: 12px;"
               />
             </template>
           </el-alert>
