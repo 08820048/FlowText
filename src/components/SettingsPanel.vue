@@ -120,14 +120,11 @@ async function selectExportFolder() {
  * 打开导出文件夹
  */
 async function openExportFolder() {
-  if (!exportPath.value) {
-    ElMessage.warning('请先设置导出路径');
-    return;
-  }
-
   try {
     const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('open_folder', { path: exportPath.value });
+    // 使用自定义路径或默认路径
+    const pathToOpen = exportPath.value || defaultExportPath.value;
+    await invoke('open_folder', { path: pathToOpen });
     ElMessage.success('已打开导出文件夹');
   } catch (error) {
     console.error('打开文件夹失败:', error);
@@ -267,16 +264,13 @@ function resetAllSettings() {
                   />
                   <el-button @click="selectExportFolder" size="small">选择文件夹</el-button>
                 </div>
-                <div class="export-path-actions" v-if="exportPath">
+                <div class="export-path-actions">
                   <el-button @click="openExportFolder" size="small" type="success">
                     <el-icon><FolderOpened /></el-icon>
                     打开
                   </el-button>
-                  <el-button @click="resetExportPath" size="small">重置</el-button>
+                  <el-button @click="resetExportPath" size="small" v-if="exportPath">重置</el-button>
                 </div>
-              </div>
-              <div class="setting-hint">
-                设置字幕文件的导出位置。未设置时将使用默认路径：{{ defaultExportPath }}
               </div>
             </el-form-item>
 
