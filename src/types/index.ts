@@ -97,4 +97,5 @@ export interface AppSettings {
   maxConcurrentTasks: number;
   autoSave: boolean;
   autoSaveInterval: number; // 秒
+  exportPath?: string; // 字幕导出路径
 }

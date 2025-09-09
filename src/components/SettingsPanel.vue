@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { ElMessage } from 'element-plus';
+import { FolderOpened } from '@element-plus/icons-vue';
 import { useSettingsStore } from '../stores';
 import { validateApiKeys } from '../utils/recognitionUtils';
 import { ProgressMonitor } from '../utils/progressMonitor';
@@ -41,6 +42,9 @@ const autoSave = ref(settingsStore.settings.autoSave);
 // 自动保存间隔（秒）
 const autoSaveInterval = ref(settingsStore.settings.autoSaveInterval);
 
+// 字幕导出路径
+const exportPath = ref(settingsStore.settings.exportPath || '');
+
 // 云服务API密钥相关功能已移除，只保留本地Whisper识别
 
 // API密钥验证功能已移除（仅使用本地Whisper）
@@ -79,9 +83,61 @@ function updateGeneralSettings() {
     useGPU: useGPU.value,
     maxConcurrentTasks: maxConcurrentTasks.value,
     autoSave: autoSave.value,
-    autoSaveInterval: autoSaveInterval.value
+    autoSaveInterval: autoSaveInterval.value,
+    exportPath: exportPath.value
   });
   ElMessage.success('设置已更新');
+}
+
+/**
+ * 选择导出文件夹
+ */
+async function selectExportFolder() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: '选择字幕导出文件夹'
+    });
+
+    if (selected && typeof selected === 'string') {
+      exportPath.value = selected;
+      updateGeneralSettings();
+      ElMessage.success('导出路径已设置');
+    }
+  } catch (error) {
+    console.error('选择文件夹失败:', error);
+    ElMessage.error('选择文件夹失败');
+  }
+}
+
+/**
+ * 打开导出文件夹
+ */
+async function openExportFolder() {
+  if (!exportPath.value) {
+    ElMessage.warning('请先设置导出路径');
+    return;
+  }
+
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('open_folder', { path: exportPath.value });
+    ElMessage.success('已打开导出文件夹');
+  } catch (error) {
+    console.error('打开文件夹失败:', error);
+    ElMessage.error('打开文件夹失败');
+  }
+}
+
+/**
+ * 重置导出路径
+ */
+function resetExportPath() {
+  exportPath.value = '';
+  updateGeneralSettings();
+  ElMessage.success('已重置为默认路径');
 }
 
 /**
@@ -98,6 +154,7 @@ function resetAllSettings() {
   maxConcurrentTasks.value = settingsStore.settings.maxConcurrentTasks;
   autoSave.value = settingsStore.settings.autoSave;
   autoSaveInterval.value = settingsStore.settings.autoSaveInterval;
+  exportPath.value = settingsStore.settings.exportPath || '';
   
   apiKeys.value = {
     baidu: {
@@ -175,7 +232,29 @@ function resetAllSettings() {
             <el-form-item label="自动保存间隔（秒）" v-if="autoSave">
               <el-input-number v-model="autoSaveInterval" :min="10" :max="300" :step="10" />
             </el-form-item>
-            
+
+            <el-divider />
+
+            <el-form-item label="字幕导出路径">
+              <div class="export-path-setting">
+                <el-input
+                  v-model="exportPath"
+                  placeholder="默认路径（留空使用系统默认位置）"
+                  readonly
+                  style="flex: 1; margin-right: 8px;"
+                />
+                <el-button @click="selectExportFolder" size="small">选择文件夹</el-button>
+                <el-button @click="openExportFolder" size="small" :disabled="!exportPath" type="success">
+                  <el-icon><FolderOpened /></el-icon>
+                  打开
+                </el-button>
+                <el-button @click="resetExportPath" size="small" :disabled="!exportPath">重置</el-button>
+              </div>
+              <div class="setting-hint">
+                设置字幕文件的默认导出位置，留空则使用应用程序目录
+              </div>
+            </el-form-item>
+
             <el-form-item>
               <el-button type="primary" @click="updateGeneralSettings">保存设置</el-button>
               <el-button @click="resetAllSettings">重置所有设置</el-button>
@@ -521,6 +600,22 @@ function resetAllSettings() {
 :deep(.el-divider) {
   margin: 32px 0;
   border-color: #e2e8f0;
+}
+
+/* 导出路径设置样式 */
+.export-path-setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.export-path-setting .el-input {
+  flex: 1;
+}
+
+.export-path-setting .el-button {
+  flex-shrink: 0;
 }
 
 /* 扁平化滚动条样式 */

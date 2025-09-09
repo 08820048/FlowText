@@ -244,6 +244,62 @@ pub fn export_subtitles(
     }
 }
 
+/// 导出字幕到指定路径
+pub fn export_subtitles_to_path(
+    subtitles: &[Subtitle],
+    format: &str,
+    file_name: &str,
+    export_path: &str,
+) -> Result<String, String> {
+    // 确保导出路径存在
+    std::fs::create_dir_all(export_path).map_err(|e| format!("创建导出目录失败: {}", e))?;
+
+    // 构建完整的文件路径
+    let full_path =
+        std::path::Path::new(export_path).join(format!("{}.{}", file_name, format.to_lowercase()));
+    let full_path_str = full_path.to_string_lossy().to_string();
+
+    match format.to_lowercase().as_str() {
+        "srt" => export_srt_to_path(subtitles, &full_path_str),
+        "vtt" => export_vtt_to_path(subtitles, &full_path_str),
+        "ass" => export_ass_to_path(subtitles, &full_path_str),
+        "txt" => export_txt_to_path(subtitles, &full_path_str),
+        "json" => export_json_to_path(subtitles, &full_path_str),
+        _ => Err(format!("不支持的字幕格式: {}", format)),
+    }
+}
+
+/// 打开文件夹
+pub fn open_folder(path: &str) -> Result<(), String> {
+    use std::process::Command;
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(path)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    Ok(())
+}
+
 /// 导出SRT格式字幕
 fn export_srt(subtitles: &[Subtitle], file_name: &str) -> Result<String, String> {
     let path = format!("{}.srt", file_name);
@@ -262,6 +318,25 @@ fn export_srt(subtitles: &[Subtitle], file_name: &str) -> Result<String, String>
     }
 
     Ok(path)
+}
+
+/// 导出SRT格式字幕到指定路径
+fn export_srt_to_path(subtitles: &[Subtitle], full_path: &str) -> Result<String, String> {
+    let mut file = File::create(full_path).map_err(|e| format!("创建文件失败: {}", e))?;
+
+    for (i, subtitle) in subtitles.iter().enumerate() {
+        // 转换时间格式 (秒 -> 00:00:00,000)
+        let start = format_time_srt(subtitle.start_time);
+        let end = format_time_srt(subtitle.end_time);
+
+        // 写入字幕块
+        writeln!(file, "{}", i + 1).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file, "{} --> {}", start, end).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file, "{}", subtitle.text).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
+    }
+
+    Ok(full_path.to_string())
 }
 
 /// 导出ASS格式字幕
@@ -306,6 +381,47 @@ fn export_ass(subtitles: &[Subtitle], file_name: &str) -> Result<String, String>
     Ok(path)
 }
 
+/// 导出ASS格式字幕到指定路径
+fn export_ass_to_path(subtitles: &[Subtitle], full_path: &str) -> Result<String, String> {
+    let mut file = File::create(full_path).map_err(|e| format!("创建文件失败: {}", e))?;
+
+    // 写入ASS头部
+    writeln!(file, "[Script Info]").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "Title: FlowText Generated Subtitles")
+        .map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "ScriptType: v4.00+").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "WrapStyle: 0").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "ScaledBorderAndShadow: yes").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "YCbCr Matrix: TV.601").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
+
+    writeln!(file, "[V4+ Styles]").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file, "Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
+
+    writeln!(file, "[Events]").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(
+        file,
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
+    )
+    .map_err(|e| format!("写入文件失败: {}", e))?;
+
+    for subtitle in subtitles {
+        let start = format_time_ass(subtitle.start_time);
+        let end = format_time_ass(subtitle.end_time);
+
+        writeln!(
+            file,
+            "Dialogue: 0,{},{},Default,,0,0,0,,{}",
+            start, end, subtitle.text
+        )
+        .map_err(|e| format!("写入文件失败: {}", e))?;
+    }
+
+    Ok(full_path.to_string())
+}
+
 /// 导出TXT格式字幕
 fn export_txt(subtitles: &[Subtitle], file_name: &str) -> Result<String, String> {
     let path = format!("{}.txt", file_name);
@@ -323,6 +439,22 @@ fn export_txt(subtitles: &[Subtitle], file_name: &str) -> Result<String, String>
     Ok(path)
 }
 
+/// 导出TXT格式字幕到指定路径
+fn export_txt_to_path(subtitles: &[Subtitle], full_path: &str) -> Result<String, String> {
+    let mut file = File::create(full_path).map_err(|e| format!("创建文件失败: {}", e))?;
+
+    for subtitle in subtitles {
+        let start = format_time_srt(subtitle.start_time);
+        let end = format_time_srt(subtitle.end_time);
+
+        writeln!(file, "[{}] - [{}]", start, end).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file, "{}", subtitle.text).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
+    }
+
+    Ok(full_path.to_string())
+}
+
 /// 导出JSON格式字幕
 fn export_json(subtitles: &[Subtitle], file_name: &str) -> Result<String, String> {
     let path = format!("{}.json", file_name);
@@ -332,6 +464,16 @@ fn export_json(subtitles: &[Subtitle], file_name: &str) -> Result<String, String
     std::fs::write(&path, json_data).map_err(|e| format!("写入文件失败: {}", e))?;
 
     Ok(path)
+}
+
+/// 导出JSON格式字幕到指定路径
+fn export_json_to_path(subtitles: &[Subtitle], full_path: &str) -> Result<String, String> {
+    let json_data =
+        serde_json::to_string_pretty(subtitles).map_err(|e| format!("序列化JSON失败: {}", e))?;
+
+    std::fs::write(full_path, json_data).map_err(|e| format!("写入文件失败: {}", e))?;
+
+    Ok(full_path.to_string())
 }
 
 /// 格式化时间为ASS格式 (H:MM:SS.CC)
@@ -369,6 +511,29 @@ fn export_vtt(subtitles: &[Subtitle], file_name: &str) -> Result<String, String>
     }
 
     Ok(path)
+}
+
+/// 导出WebVTT格式字幕到指定路径
+fn export_vtt_to_path(subtitles: &[Subtitle], full_path: &str) -> Result<String, String> {
+    let mut file = File::create(full_path).map_err(|e| format!("创建文件失败: {}", e))?;
+
+    // 写入WebVTT头部
+    writeln!(file, "WEBVTT").map_err(|e| format!("写入文件失败: {}", e))?;
+    writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
+
+    for (i, subtitle) in subtitles.iter().enumerate() {
+        // 转换时间格式 (秒 -> 00:00:00.000)
+        let start = format_time_vtt(subtitle.start_time);
+        let end = format_time_vtt(subtitle.end_time);
+
+        // 写入字幕块
+        writeln!(file, "{}", i + 1).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file, "{} --> {}", start, end).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file, "{}", subtitle.text).map_err(|e| format!("写入文件失败: {}", e))?;
+        writeln!(file).map_err(|e| format!("写入文件失败: {}", e))?;
+    }
+
+    Ok(full_path.to_string())
 }
 
 /// 导入字幕文件

@@ -28,6 +28,22 @@ async fn export_subtitles(
 }
 
 #[tauri::command]
+async fn export_subtitles_to_path(
+    subtitles: Vec<Subtitle>,
+    format: String,
+    file_name: String,
+    export_path: String,
+) -> Result<String, String> {
+    video::export_subtitles_to_path(&subtitles, &format, &file_name, &export_path)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn open_folder(path: String) -> Result<(), String> {
+    video::open_folder(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn import_subtitles(file_path: String) -> Result<Vec<Subtitle>, String> {
     video::import_subtitles(&file_path).map_err(|e| e.to_string())
 }
@@ -73,6 +89,8 @@ pub fn run() {
             get_video_info,
             extract_audio,
             export_subtitles,
+            export_subtitles_to_path,
+            open_folder,
             import_subtitles,
             start_recognition,
             get_recognition_status,

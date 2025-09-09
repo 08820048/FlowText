@@ -165,13 +165,14 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { useVideoStore } from '../stores';
+import { useVideoStore, useSettingsStore } from '../stores';
 import { ProgressMonitor } from '../utils/progressMonitor';
 import { ErrorHandler, ErrorType, ErrorSeverity } from '../utils/errorHandler';
 import type { Subtitle, SubtitleFormat } from '../types';
 
 // 引入存储
 const videoStore = useVideoStore();
+const settingsStore = useSettingsStore();
 
 // 编辑状态
 const editingId = ref<string | null>(null);
@@ -444,20 +445,60 @@ async function confirmExportSubtitles() {
       ProgressMonitor.startTask(progressTaskId, '正在准备导出数据...');
       ProgressMonitor.updateProgress(progressTaskId, 20, '正在准备导出数据...');
       
-      const { exportSubtitles: exportSubtitlesUtil } = await import('../utils/videoUtils');
-      
+      const { exportSubtitles: exportSubtitlesUtil, exportSubtitlesToPath } = await import('../utils/videoUtils');
+
       ProgressMonitor.updateProgress(progressTaskId, 60, '正在生成字幕文件...');
-      
-      const filePath = await exportSubtitlesUtil(
-        videoStore.subtitles,
-        exportForm.value.format,
-        exportForm.value.fileName.trim()
-      );
+
+      // 检查是否设置了自定义导出路径
+      const customExportPath = settingsStore.settings.exportPath;
+      let filePath: string;
+
+      if (customExportPath && customExportPath.trim()) {
+        // 使用自定义路径导出
+        filePath = await exportSubtitlesToPath(
+          videoStore.subtitles,
+          exportForm.value.format,
+          exportForm.value.fileName.trim(),
+          customExportPath
+        );
+      } else {
+        // 使用默认路径导出
+        filePath = await exportSubtitlesUtil(
+          videoStore.subtitles,
+          exportForm.value.format,
+          exportForm.value.fileName.trim()
+        );
+      }
       
       ProgressMonitor.completeTask(progressTaskId, `字幕导出成功: ${filePath}`);
-      
+
       showExportDialog.value = false;
-      ElMessage.success(`字幕导出成功：${filePath}`);
+
+      // 显示成功消息，并提供打开文件夹选项
+      ElMessageBox.confirm(
+        `字幕导出成功：${filePath}`,
+        '导出完成',
+        {
+          confirmButtonText: '打开文件夹',
+          cancelButtonText: '关闭',
+          type: 'success',
+          showClose: false
+        }
+      ).then(async () => {
+        // 用户选择打开文件夹
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          const folderPath = customExportPath && customExportPath.trim()
+            ? customExportPath
+            : process.cwd(); // 如果没有自定义路径，使用当前工作目录
+          await invoke('open_folder', { path: folderPath });
+        } catch (error) {
+          console.error('打开文件夹失败:', error);
+          ElMessage.error('打开文件夹失败');
+        }
+      }).catch(() => {
+        // 用户选择关闭，不做任何操作
+      });
     } catch (error) {
       ProgressMonitor.failTask(progressTaskId, `导出失败: ${error}`);
       throw error;

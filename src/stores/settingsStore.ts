@@ -16,7 +16,8 @@ export const useSettingsStore = defineStore('settings', () => {
     useGPU: true,
     maxConcurrentTasks: 2,
     autoSave: true,
-    autoSaveInterval: 60
+    autoSaveInterval: 60,
+    exportPath: '' // 默认为空，使用系统默认路径
   };
   
   // 当前应用设置
@@ -95,9 +96,18 @@ export const useSettingsStore = defineStore('settings', () => {
     settings.value.defaultSubtitleFormat = format;
     saveSettings();
   }
-  
+
+  /**
+   * 设置字幕导出路径
+   * @param path 导出路径
+   */
+  function setExportPath(path: string) {
+    settings.value.exportPath = path;
+    saveSettings();
+  }
+
   // 主题相关方法已移除
-  
+
   /**
    * 重置设置为默认值
    */
@@ -114,6 +124,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setDefaultEngine,
     setDefaultLanguage,
     setDefaultSubtitleFormat,
+    setExportPath,
     resetSettings
   };
 });

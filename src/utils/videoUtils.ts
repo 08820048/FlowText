@@ -122,6 +122,23 @@ export async function exportSubtitles(subtitles: Subtitle[], format: SubtitleFor
 }
 
 /**
+ * 导出字幕到指定路径
+ * @param subtitles 字幕数组
+ * @param format 字幕格式
+ * @param fileName 文件名（不含扩展名）
+ * @param exportPath 导出路径
+ * @returns 导出的文件路径
+ */
+export async function exportSubtitlesToPath(subtitles: Subtitle[], format: SubtitleFormat, fileName: string, exportPath: string): Promise<string> {
+  try {
+    return await invoke<string>('export_subtitles_to_path', { subtitles, format, fileName, exportPath });
+  } catch (error) {
+    console.error('导出字幕到指定路径失败:', error);
+    throw new Error(`导出字幕失败: ${error}`);
+  }
+}
+
+/**
  * 导入字幕文件
  * @param filePath 字幕文件路径
  * @returns 字幕数组
