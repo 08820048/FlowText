@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { Microphone, Edit, Setting, ArrowRight, ArrowLeft } from '@element-plus/icons-vue';
 import { useSettingsStore } from '../stores';
 import { themeManager } from '../utils/themeManager';
@@ -25,6 +25,10 @@ const sidebarCollapsed = ref(false);
 const leftPanelWidth = ref(60);
 // 是否正在拖拽分割线
 const isDragging = ref(false);
+// 拖拽时的临时宽度（用于优化性能）
+const dragTempWidth = ref(60);
+// 动画帧ID
+let animationFrameId: number | null = null;
 
 // 切换右侧面板展开状态
 function toggleRightPanel(panelName?: string) {
@@ -64,34 +68,72 @@ function startDrag(event: MouseEvent) {
   if (sidebarCollapsed.value) return;
 
   isDragging.value = true;
-  document.addEventListener('mousemove', onDrag);
+  dragTempWidth.value = leftPanelWidth.value;
+
+  // 添加全局样式以优化拖拽性能
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'col-resize';
+
+  document.addEventListener('mousemove', onDrag, { passive: true });
   document.addEventListener('mouseup', stopDrag);
   event.preventDefault();
 }
 
-// 拖拽过程中
+// 拖拽过程中 - 使用requestAnimationFrame优化
 function onDrag(event: MouseEvent) {
   if (!isDragging.value) return;
 
-  const container = document.querySelector('.main-content') as HTMLElement;
-  if (!container) return;
+  // 取消之前的动画帧
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+  }
 
-  const containerRect = container.getBoundingClientRect();
-  const mouseX = event.clientX - containerRect.left;
-  const containerWidth = containerRect.width;
+  // 使用requestAnimationFrame确保流畅渲染
+  animationFrameId = requestAnimationFrame(() => {
+    const container = document.querySelector('.main-content') as HTMLElement;
+    if (!container) return;
 
-  // 计算新的左侧面板宽度百分比
-  let newWidth = (mouseX / containerWidth) * 100;
+    const containerRect = container.getBoundingClientRect();
+    const mouseX = event.clientX - containerRect.left;
+    const containerWidth = containerRect.width;
 
-  // 限制最小和最大宽度
-  newWidth = Math.max(20, Math.min(80, newWidth));
+    // 计算新的左侧面板宽度百分比
+    let newWidth = (mouseX / containerWidth) * 100;
 
-  leftPanelWidth.value = newWidth;
+    // 限制最小和最大宽度
+    newWidth = Math.max(20, Math.min(80, newWidth));
+
+    // 更新临时宽度用于实时显示
+    dragTempWidth.value = newWidth;
+
+    // 直接操作CSS变量以获得最佳性能
+    const leftPanel = document.querySelector('.left-panel') as HTMLElement;
+    const rightPanel = document.querySelector('.right-panel') as HTMLElement;
+
+    if (leftPanel && rightPanel) {
+      leftPanel.style.width = `${newWidth}%`;
+      rightPanel.style.width = `${100 - newWidth}%`;
+    }
+  });
 }
 
 // 停止拖拽
 function stopDrag() {
   isDragging.value = false;
+
+  // 清理动画帧
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
+  // 恢复全局样式
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
+
+  // 更新最终宽度
+  leftPanelWidth.value = dragTempWidth.value;
+
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', stopDrag);
 }
@@ -100,6 +142,20 @@ function stopDrag() {
 onMounted(() => {
   settingsStore.initSettings();
   themeManager.init();
+});
+
+// 组件卸载时清理
+onUnmounted(() => {
+  // 清理拖拽相关的事件监听器和动画帧
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+  }
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+
+  // 恢复全局样式
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
 });
 </script>
 
@@ -243,11 +299,16 @@ onMounted(() => {
   padding: 0;
   background: #f8f9fa;
   position: relative;
+  /* 启用硬件加速 */
+  transform: translateZ(0);
+  will-change: auto;
 }
 
 .main-content.dragging {
   cursor: col-resize;
   user-select: none;
+  /* 拖拽时启用硬件加速 */
+  will-change: contents;
 }
 
 .main-content.dragging * {
@@ -259,12 +320,23 @@ onMounted(() => {
   flex-direction: column;
   background: #ffffff;
   overflow: hidden;
-  transition: width 0.3s ease;
   min-width: 200px;
+  /* 优化拖拽性能 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* 只在非拖拽时启用过渡动画 */
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .left-panel.full-width {
   width: 100% !important;
+}
+
+/* 拖拽时禁用过渡动画以提升性能 */
+.main-content.dragging .left-panel,
+.main-content.dragging .right-panel {
+  transition: none !important;
+  will-change: width;
 }
 
 /* 可拖拽的分割线 */
@@ -274,20 +346,38 @@ onMounted(() => {
   cursor: col-resize;
   position: relative;
   flex-shrink: 0;
+  /* 硬件加速 */
+  transform: translateZ(0);
+  /* 增加点击区域 */
+  z-index: 10;
 }
 
 .resize-handle:hover {
   background: #0fdc78;
+  /* 悬停时的过渡效果 */
+  transition: background-color 0.15s ease;
 }
 
+.resize-handle:active {
+  background: #0bc96a;
+}
+
+/* 扩大点击区域 */
 .resize-handle::before {
   content: '';
   position: absolute;
-  left: -2px;
-  right: -2px;
+  left: -4px;
+  right: -4px;
   top: 0;
   bottom: 0;
   background: transparent;
+  cursor: col-resize;
+}
+
+/* 拖拽时的视觉反馈 */
+.main-content.dragging .resize-handle {
+  background: #0fdc78;
+  box-shadow: 0 0 0 1px rgba(15, 220, 120, 0.3);
 }
 
 .left-panel > :first-child {
@@ -298,8 +388,12 @@ onMounted(() => {
   display: flex;
   background: #ffffff;
   overflow: hidden;
-  transition: width 0.3s ease;
   min-width: 48px; /* 侧边栏图标宽度 */
+  /* 优化拖拽性能 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* 只在非拖拽时启用过渡动画 */
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .right-panel.collapsed {
