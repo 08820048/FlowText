@@ -814,19 +814,19 @@ if (import.meta.env.DEV) {
 
 .play-icon {
   font-size: 72px;
-  color: white;
+  color: #67C23A;
   opacity: 1;
-  background: #67C23A;
+  background: transparent;
+  border: 3px solid #67C23A;
   border-radius: 50%;
   padding: 20px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
 }
 
 .play-icon:hover {
   transform: scale(1.1);
-  background: #5daf34;
-  box-shadow: 0 6px 16px rgba(103, 194, 58, 0.4);
+  color: #5daf34;
+  border-color: #5daf34;
 }
 
 .integrated-controls {
