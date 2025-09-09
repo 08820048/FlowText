@@ -10,7 +10,7 @@ export const useSettingsStore = defineStore('settings', () => {
   // 默认设置
   const defaultSettings: AppSettings = {
     defaultEngine: 'faster-whisper',
-    defaultLanguage: 'zh',
+    defaultLanguage: 'zh-cn', // 默认简体中文
     defaultSubtitleFormat: 'srt',
     apiKeys: {},
     modelConfigs: {

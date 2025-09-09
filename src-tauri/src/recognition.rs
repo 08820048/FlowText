@@ -834,6 +834,20 @@ import sys
 import json
 from faster_whisper import WhisperModel
 
+# 尝试导入繁简转换库
+converter = None
+try:
+    import opencc
+    converter = opencc.OpenCC('t2s')  # 繁体转简体
+except ImportError:
+    try:
+        from zhconv import convert
+        def convert_to_simplified(text):
+            return convert(text, 'zh-cn')
+        converter = convert_to_simplified
+    except ImportError:
+        print("警告: 未安装繁简转换库，将保持原始输出", file=sys.stderr)
+
 try:
     # 初始化模型
     model = WhisperModel(
@@ -846,13 +860,19 @@ try:
     beam_size = {beam_size}
     temperature = {temperature}
 
+    # 设置初始提示词，引导输出简体中文
+    initial_prompt = None
+    if "{language}" == "zh":
+        initial_prompt = "以下是简体中文语音："
+
     # 进行识别
     segments, info = model.transcribe(
         "{audio_path}",
         language="{language}" if "{language}" != "auto" else None,
         beam_size=beam_size,
         temperature=temperature,
-        word_timestamps=True
+        word_timestamps=True,
+        initial_prompt=initial_prompt
     )
 
     # 输出SRT格式
@@ -860,6 +880,32 @@ try:
         start = segment.start
         end = segment.end
         text = segment.text.strip()
+
+        # 根据语言设置进行繁简转换
+        original_language = "{original_language}"
+        if original_language in ["zh-cn", "zh"] and converter and text:
+            # 转换为简体中文
+            try:
+                if hasattr(converter, 'convert'):
+                    # OpenCC 转换器
+                    text = converter.convert(text)
+                else:
+                    # zhconv 转换器
+                    text = converter(text)
+            except Exception as e:
+                print(f"繁简转换失败: {{e}}", file=sys.stderr)
+                # 转换失败时保持原文
+        elif original_language == "zh-tw" and text:
+            # 繁体中文，不进行转换或转换为繁体
+            try:
+                if converter:
+                    # 如果有转换器，可以进行简体到繁体的转换
+                    import opencc
+                    s2t_converter = opencc.OpenCC('s2t')  # 简体转繁体
+                    text = s2t_converter.convert(text)
+            except:
+                # 转换失败时保持原文
+                pass
 
         start_time = "{{:02d}}:{{:02d}}:{{:06.3f}}".format(
             int(start // 3600),
@@ -891,11 +937,11 @@ except Exception as e:
         beam_size = params.model_config.beam_size.unwrap_or(5),
         temperature = params.model_config.temperature.unwrap_or(0.0),
         audio_path = params.audio_path,
-        language = if params.language == "zh" {
-            "zh"
-        } else {
-            &params.language
-        }
+        language = match params.language.as_str() {
+            "zh-cn" | "zh-tw" | "zh" => "zh",
+            _ => &params.language,
+        },
+        original_language = params.language
     );
 
     // 更新进度：开始识别

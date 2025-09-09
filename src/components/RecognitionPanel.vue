@@ -129,17 +129,33 @@ const supportedLanguages = computed(() => {
   if (!currentModel.value) return [];
 
   const languageNames: Record<string, string> = {
-    'zh': '中文', 'en': '英语', 'ja': '日语', 'ko': '韩语',
+    'zh': '中文（简体）', 'zh-cn': '中文（简体）', 'zh-tw': '中文（繁体）',
+    'en': '英语', 'ja': '日语', 'ko': '韩语',
     'fr': '法语', 'de': '德语', 'es': '西班牙语', 'ru': '俄语',
     'it': '意大利语', 'pt': '葡萄牙语', 'ar': '阿拉伯语', 'hi': '印地语',
     'th': '泰语', 'vi': '越南语', 'tr': '土耳其语', 'pl': '波兰语',
     'nl': '荷兰语', 'sv': '瑞典语', 'da': '丹麦语', 'no': '挪威语'
   };
 
-  return currentModel.value.languages.map(code => ({
-    code,
-    name: languageNames[code] || code.toUpperCase()
-  }));
+  const languages = [];
+
+  // 为每种语言创建选项
+  for (const code of currentModel.value.languages) {
+    if (code === 'zh') {
+      // 中文提供繁简体选项
+      languages.push(
+        { code: 'zh-cn', name: '中文（简体）' },
+        { code: 'zh-tw', name: '中文（繁体）' }
+      );
+    } else {
+      languages.push({
+        code,
+        name: languageNames[code] || code.toUpperCase()
+      });
+    }
+  }
+
+  return languages;
 });
 
 // 监听引擎变化，更新模型配置
@@ -453,7 +469,15 @@ ${pythonInstall}
 <p>打开${terminalName}，运行以下命令：</p>
 <pre><code>${pipCommand} ${command}</code></pre>
 
-<h4>3. GPU 加速（可选）：</h4>
+<h4>3. 安装繁简转换库（推荐）：</h4>
+<p>为了更好地支持中文繁简体转换，建议安装以下库之一：</p>
+<pre><code># 推荐：OpenCC（更准确）
+${pipCommand} opencc-python-reimplemented
+
+# 或者：zhconv（更轻量）
+${pipCommand} zhconv</code></pre>
+
+<h4>4. GPU 加速（可选）：</h4>
 ${os === 'windows' ? `
 <ul>
   <li>下载并安装 <a href="https://developer.nvidia.com/cuda-downloads" target="_blank">CUDA Toolkit</a></li>
@@ -465,7 +489,7 @@ ${os === 'windows' ? `
   <li>重新安装：<code>${pipCommand} ${command}[gpu]</code></li>
 </ul>`}
 
-<h4>4. 验证安装：</h4>
+<h4>5. 验证安装：</h4>
 <pre><code>python -c "from faster_whisper import WhisperModel; print('Faster Whisper 安装成功')"</code></pre>
 
 <h4>可能遇到的问题：</h4>
