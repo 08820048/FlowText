@@ -263,14 +263,17 @@ onUnmounted(() => {
 
 /* 自定义标题栏 */
 .custom-titlebar {
-  height: 30px;
-  background: #ffffff;
+  height: 28px;
+  background: transparent;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 16px;
-  /* 确保贴近窗口顶部 */
-  position: relative;
+  /* 确保在系统标题栏内 */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
   /* 允许拖拽窗口 */
   -webkit-app-region: drag;
@@ -287,6 +290,10 @@ onUnmounted(() => {
   font-weight: 500;
   color: #374151;
   user-select: none;
+  /* 在macOS上，标题通常居中显示 */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .titlebar-actions {
@@ -295,6 +302,8 @@ onUnmounted(() => {
   align-items: center;
   /* 防止拖拽区域影响按钮点击 */
   -webkit-app-region: no-drag;
+  /* 在macOS上，为系统按钮留出空间 */
+  margin-right: 80px;
 }
 
 .titlebar-icon {
@@ -324,8 +333,8 @@ onUnmounted(() => {
   height: 2px;
   background: #0fdc78;
   flex-shrink: 0;
-  /* 紧贴标题栏 */
-  margin: 0;
+  /* 为标题栏留出空间 */
+  margin-top: 28px;
 }
 
 
