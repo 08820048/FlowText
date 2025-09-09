@@ -58,14 +58,24 @@
             <div v-if="editingId !== subtitle.id" class="text-display">
               {{ subtitle.text }}
             </div>
-            <el-input 
-              v-else
-              v-model="editForm.text"
-              type="textarea"
-              :rows="2"
-              placeholder="请输入字幕内容"
-              class="text-input"
-            />
+            <div v-else class="text-edit-container">
+              <el-input
+                v-model="editForm.text"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入字幕内容"
+                class="text-input"
+                :autosize="{ minRows: 3, maxRows: 8 }"
+                resize="vertical"
+                show-word-limit
+                :maxlength="200"
+                @keydown="handleTextareaKeydown"
+                ref="textareaRef"
+              />
+              <div class="edit-tips">
+                <span class="tip-text">支持多行文本，按 Ctrl+Enter 快速保存，Esc 取消编辑</span>
+              </div>
+            </div>
           </div>
           
           <div class="col-actions">
@@ -153,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useVideoStore } from '../stores';
 import { ProgressMonitor } from '../utils/progressMonitor';
@@ -170,6 +180,9 @@ const editForm = ref({
   endTime: '',
   text: ''
 });
+
+// 文本框引用
+const textareaRef = ref();
 
 // 添加字幕对话框
 const showAddDialog = ref(false);
@@ -229,6 +242,18 @@ function startEdit(subtitle: Subtitle) {
     endTime: formatTime(subtitle.endTime),
     text: subtitle.text
   };
+
+  // 下一帧聚焦到文本框
+  nextTick(() => {
+    if (textareaRef.value) {
+      textareaRef.value.focus();
+      // 选中所有文本
+      const textarea = textareaRef.value.textarea || textareaRef.value.$el?.querySelector('textarea');
+      if (textarea) {
+        textarea.select();
+      }
+    }
+  });
 }
 
 /**
@@ -272,6 +297,22 @@ function cancelEdit() {
     endTime: '',
     text: ''
   };
+}
+
+/**
+ * 处理文本框键盘事件
+ */
+function handleTextareaKeydown(event: KeyboardEvent) {
+  // Ctrl+Enter 保存
+  if (event.ctrlKey && event.key === 'Enter') {
+    event.preventDefault();
+    saveEdit();
+  }
+  // Esc 取消编辑
+  else if (event.key === 'Escape') {
+    event.preventDefault();
+    cancelEdit();
+  }
 }
 
 /**
@@ -531,7 +572,7 @@ async function confirmExportSubtitles() {
 
 .list-header {
   display: grid;
-  grid-template-columns: 180px 1fr 200px;
+  grid-template-columns: 200px 1fr 180px;
   gap: 16px;
   padding: 16px 20px;
   background: #f8f9fa;
@@ -556,7 +597,7 @@ async function confirmExportSubtitles() {
 
 .subtitle-item {
   display: grid;
-  grid-template-columns: 180px 1fr 200px;
+  grid-template-columns: 200px 1fr 180px;
   gap: 16px;
   padding: 16px 20px;
   border: 1px solid #e2e8f0;
@@ -655,11 +696,39 @@ async function confirmExportSubtitles() {
   overflow-wrap: break-word;
   max-width: 100%;
   font-size: 14px;
-  padding: 4px 0;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.text-display:hover {
+  background: #f1f3f4;
+  border-color: #d0d7de;
+}
+
+.text-edit-container {
+  width: 100%;
+  position: relative;
 }
 
 .text-input {
   width: 100%;
+}
+
+.edit-tips {
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.tip-text {
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
 }
 
 .col-actions {
@@ -847,7 +916,35 @@ async function confirmExportSubtitles() {
 
 :deep(.el-textarea__inner) {
   transition: all 0.3s ease;
-  border-radius: 0;
+  border-radius: 8px !important;
+  border: 2px solid #e9ecef !important;
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+  resize: vertical !important;
+  min-height: 80px !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+:deep(.el-textarea__inner:focus) {
+  border-color: #0fdc78 !important;
+  box-shadow: 0 0 0 3px rgba(15, 220, 120, 0.1), 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  outline: none !important;
+}
+
+:deep(.el-textarea__inner:hover) {
+  border-color: #0fdc78 !important;
+}
+
+:deep(.el-textarea .el-input__count) {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  font-size: 11px !important;
+  color: #6c757d !important;
+  border: 1px solid #e9ecef !important;
 }
 
 :deep(.el-dialog) {
