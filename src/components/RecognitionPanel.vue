@@ -587,7 +587,6 @@ async function cancelRecognitionProcess() {
               :value="engine.value"
             >
               <div class="engine-option">
-                <span class="engine-icon">{{ engine.icon }}</span>
                 <div class="engine-info">
                   <div class="engine-name">{{ engine.label }}</div>
                   <div class="engine-desc">{{ engine.description }}</div>
@@ -908,10 +907,7 @@ async function cancelRecognitionProcess() {
   padding: 4px 0;
 }
 
-.engine-icon {
-  font-size: 18px;
-  margin-right: 8px;
-}
+
 
 .engine-info {
   flex: 1;

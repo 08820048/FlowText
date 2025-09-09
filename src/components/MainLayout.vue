@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { Microphone, Edit, Setting, ArrowRight, ArrowLeft } from '@element-plus/icons-vue';
-import { useSettingsStore } from '../stores';
+import { useSettingsStore, useVideoStore } from '../stores';
 import { themeManager } from '../utils/themeManager';
 import VideoImport from './VideoImport.vue';
 import VideoPlayer from './VideoPlayer.vue';
@@ -10,8 +10,9 @@ import RecognitionPanel from './RecognitionPanel.vue';
 import SettingsPanel from './SettingsPanel.vue';
 import TaskStatusBar from './TaskStatusBar.vue';
 
-// 引入设置存储
+// 引入存储
 const settingsStore = useSettingsStore();
+const videoStore = useVideoStore();
 
 // 当前激活的面板
 const activePanel = ref('recognition');
@@ -134,6 +135,16 @@ function stopDrag() {
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', stopDrag);
 }
+
+// 监听视频加载状态，自动切换到识别面板
+watch(() => videoStore.isVideoLoaded, (isLoaded) => {
+  if (isLoaded) {
+    // 视频加载成功后，自动切换到识别面板并展开右侧面板
+    activePanel.value = 'recognition';
+    rightPanelExpanded.value = true;
+    sidebarCollapsed.value = false;
+  }
+});
 
 // 初始化设置
 onMounted(() => {
