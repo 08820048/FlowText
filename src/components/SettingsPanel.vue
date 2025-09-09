@@ -16,27 +16,12 @@ const loading = ref({
   validate: false
 });
 
-// 当前编辑的API密钥
-const apiKeys = ref({
-  baidu: {
-    appId: settingsStore.settings.apiKeys.baidu?.appId || '',
-    apiKey: settingsStore.settings.apiKeys.baidu?.apiKey || '',
-    secretKey: settingsStore.settings.apiKeys.baidu?.secretKey || ''
-  },
-  tencent: {
-    secretId: settingsStore.settings.apiKeys.tencent?.secretId || '',
-    secretKey: settingsStore.settings.apiKeys.tencent?.secretKey || ''
-  },
-  aliyun: {
-    accessKeyId: settingsStore.settings.apiKeys.aliyun?.accessKeyId || '',
-    accessKeySecret: settingsStore.settings.apiKeys.aliyun?.accessKeySecret || ''
-  }
-});
+// Whisper设置（本地识别，无需API密钥）
 
 // 主题切换功能已移除
 
-// 当前默认引擎
-const defaultEngine = ref(settingsStore.settings.defaultEngine);
+// 当前默认引擎（固定为whisper）
+const defaultEngine = ref('whisper');
 
 // 当前默认语言
 const defaultLanguage = ref(settingsStore.settings.defaultLanguage);
@@ -56,89 +41,18 @@ const autoSave = ref(settingsStore.settings.autoSave);
 // 自动保存间隔（秒）
 const autoSaveInterval = ref(settingsStore.settings.autoSaveInterval);
 
-/**
- * 保存百度API密钥
- */
-async function saveBaiduApiKeys() {
-  settingsStore.setApiKeys('baidu', apiKeys.value.baidu);
-  ElMessage.success('百度API密钥已保存');
-}
+// 云服务API密钥相关功能已移除，只保留本地Whisper识别
 
-/**
- * 保存腾讯API密钥
- */
-async function saveTencentApiKeys() {
-  settingsStore.setApiKeys('tencent', apiKeys.value.tencent);
-  ElMessage.success('腾讯API密钥已保存');
-}
-
-/**
- * 保存阿里API密钥
- */
-async function saveAliyunApiKeys() {
-  settingsStore.setApiKeys('aliyun', apiKeys.value.aliyun);
-  ElMessage.success('阿里API密钥已保存');
-}
-
-/**
- * 验证API密钥
- * @param engine 识别引擎
- */
-async function validateApiKey(engine: RecognitionEngine) {
-  await ErrorHandler.withErrorHandling(async () => {
-    loading.value.validate = true;
-    
-    // 创建进度任务
-    const progressTaskId = ProgressMonitor.createTask(
-      `验证${engine}API密钥`,
-      `正在验证${engine}API密钥...`,
-      5000 // 预估5秒
-    );
-    
-    try {
-      const keys = apiKeys.value[engine];
-      
-      ProgressMonitor.updateTask(progressTaskId, {
-        progress: 50,
-        message: `正在连接${engine}服务器...`
-      });
-      
-      const isValid = await validateApiKeys(engine, keys);
-      
-      if (isValid) {
-        ProgressMonitor.completeTask(progressTaskId, `${engine}API密钥验证成功`);
-        ElMessage.success(`${engine}API密钥验证成功`);
-      } else {
-        ProgressMonitor.failTask(progressTaskId, `${engine}API密钥验证失败`);
-        ElMessage.error(`${engine}API密钥验证失败`);
-      }
-    } catch (error) {
-      ProgressMonitor.failTask(progressTaskId, `验证失败: ${error}`);
-      throw error;
-    } finally {
-      loading.value.validate = false;
-    }
-  }, {
-    context: {
-      component: 'SettingsPanel',
-      action: 'validateApiKey',
-      engine
-    },
-    onError: (error) => {
-      loading.value.validate = false;
-      ElMessage.error(`验证${engine}API密钥失败: ${error.message}`);
-    }
-  });
-}
+// API密钥验证功能已移除（仅使用本地Whisper）
 
 // 主题更新方法已移除
 
 /**
- * 更新默认引擎
+ * 更新默认引擎（固定为whisper）
  */
 function updateDefaultEngine() {
-  settingsStore.setDefaultEngine(defaultEngine.value);
-  ElMessage.success('默认引擎已更新');
+  // 固定使用whisper，无需更新
+  ElMessage.success('默认引擎已设置为Whisper本地识别');
 }
 
 /**
@@ -176,8 +90,8 @@ function updateGeneralSettings() {
 function resetAllSettings() {
   settingsStore.resetSettings();
   
-  // 更新本地状态
-  defaultEngine.value = settingsStore.settings.defaultEngine;
+  // 更新本地状态（固定为whisper）
+  defaultEngine.value = 'whisper';
   defaultLanguage.value = settingsStore.settings.defaultLanguage;
   defaultSubtitleFormat.value = settingsStore.settings.defaultSubtitleFormat;
   useGPU.value = settingsStore.settings.useGPU;
@@ -216,10 +130,7 @@ function resetAllSettings() {
             
             <el-form-item label="默认识别引擎">
               <el-select v-model="defaultEngine" @change="updateDefaultEngine" style="width: 200px">
-                <el-option label="百度智能云" value="baidu" />
-                <el-option label="腾讯云" value="tencent" />
-                <el-option label="阿里云" value="aliyun" />
-                <el-option label="Whisper" value="whisper" />
+                <el-option label="Whisper (本地)" value="whisper" />
               </el-select>
             </el-form-item>
             
@@ -272,112 +183,48 @@ function resetAllSettings() {
           </el-form>
         </el-tab-pane>
         
-        <!-- API密钥设置 -->
-        <el-tab-pane label="API密钥设置">
-          <el-tabs tab-position="left">
-            <!-- 百度智能云 -->
-            <el-tab-pane label="百度智能云">
-              <el-form label-width="100px">
-                <el-form-item label="App ID">
-                  <el-input v-model="apiKeys.baidu.appId" placeholder="请输入百度智能云App ID" />
-                </el-form-item>
-                
-                <el-form-item label="API Key">
-                  <el-input v-model="apiKeys.baidu.apiKey" placeholder="请输入百度智能云API Key" />
-                </el-form-item>
-                
-                <el-form-item label="Secret Key">
-                  <el-input v-model="apiKeys.baidu.secretKey" placeholder="请输入百度智能云Secret Key" show-password />
-                </el-form-item>
-                
-                <el-form-item>
-                  <el-button type="primary" @click="saveBaiduApiKeys">保存</el-button>
-                  <el-button @click="validateApiKey('baidu')" :loading="loading.validate">验证</el-button>
-                </el-form-item>
-                
-                <el-alert
-                  title="如何获取百度智能云API密钥"
-                  type="info"
-                  description="1. 登录百度智能云控制台 2. 创建语音识别应用 3. 获取应用的App ID、API Key和Secret Key"
-                  :closable="false"
-                  show-icon
-                />
-              </el-form>
-            </el-tab-pane>
-            
-            <!-- 腾讯云 -->
-            <el-tab-pane label="腾讯云">
-              <el-form label-width="100px">
-                <el-form-item label="Secret ID">
-                  <el-input v-model="apiKeys.tencent.secretId" placeholder="请输入腾讯云Secret ID" />
-                </el-form-item>
-                
-                <el-form-item label="Secret Key">
-                  <el-input v-model="apiKeys.tencent.secretKey" placeholder="请输入腾讯云Secret Key" show-password />
-                </el-form-item>
-                
-                <el-form-item>
-                  <el-button type="primary" @click="saveTencentApiKeys">保存</el-button>
-                  <el-button @click="validateApiKey('tencent')" :loading="loading.validate">验证</el-button>
-                </el-form-item>
-                
-                <el-alert
-                  title="如何获取腾讯云API密钥"
-                  type="info"
-                  description="1. 登录腾讯云控制台 2. 访问'访问密钥'页面 3. 创建并获取Secret ID和Secret Key"
-                  :closable="false"
-                  show-icon
-                />
-              </el-form>
-            </el-tab-pane>
-            
-            <!-- 阿里云 -->
-            <el-tab-pane label="阿里云">
-              <el-form label-width="120px">
-                <el-form-item label="Access Key ID">
-                  <el-input v-model="apiKeys.aliyun.accessKeyId" placeholder="请输入阿里云Access Key ID" />
-                </el-form-item>
-                
-                <el-form-item label="Access Key Secret">
-                  <el-input v-model="apiKeys.aliyun.accessKeySecret" placeholder="请输入阿里云Access Key Secret" show-password />
-                </el-form-item>
-                
-                <el-form-item>
-                  <el-button type="primary" @click="saveAliyunApiKeys">保存</el-button>
-                  <el-button @click="validateApiKey('aliyun')" :loading="loading.validate">验证</el-button>
-                </el-form-item>
-                
-                <el-alert
-                  title="如何获取阿里云API密钥"
-                  type="info"
-                  description="1. 登录阿里云控制台 2. 访问'AccessKey管理'页面 3. 创建并获取Access Key ID和Access Key Secret"
-                  :closable="false"
-                  show-icon
-                />
-              </el-form>
-            </el-tab-pane>
-            
-            <!-- Whisper设置 -->
-            <el-tab-pane label="Whisper设置">
-              <el-form label-width="100px">
-                <el-form-item label="模型大小">
-                  <el-radio-group v-model="settingsStore.settings.whisperModel" @change="updateGeneralSettings">
-                    <el-radio-button label="tiny">Tiny</el-radio-button>
-                    <el-radio-button label="base">Base</el-radio-button>
-                    <el-radio-button label="small">Small</el-radio-button>
-                  </el-radio-group>
-                </el-form-item>
-                
-                <el-alert
-                  title="关于Whisper"
-                  type="info"
-                  description="Whisper是OpenAI开发的开源语音识别模型，可以在本地运行，无需API密钥。模型大小影响识别精度和速度，Tiny最快但精度较低，Small最慢但精度最高。"
-                  :closable="false"
-                  show-icon
-                />
-              </el-form>
-            </el-tab-pane>
-          </el-tabs>
+        <!-- Whisper设置 -->
+        <el-tab-pane label="Whisper">
+          <div class="whisper-settings">
+            <el-alert
+              title="Whisper本地语音识别"
+              type="success"
+              :closable="false"
+              show-icon
+            >
+              <template #default>
+                <div>
+                  <p><strong>优势：</strong></p>
+                  <p>• 完全本地处理，无需网络连接</p>
+                  <p>• 支持任意大小的音频文件</p>
+                  <p>• 识别准确率高，支持多种语言</p>
+                  <p>• 无API调用限制和费用</p>
+                  <p>• 保护隐私，数据不会上传到云端</p>
+                  <br>
+                  <p><strong>支持的语言：</strong></p>
+                  <p>中文、英文、日文、韩文、法文、德文、西班牙文等100+种语言</p>
+                </div>
+              </template>
+            </el-alert>
+
+            <el-form label-width="100px" style="margin-top: 20px;">
+              <el-form-item label="模型大小">
+                <el-radio-group v-model="settingsStore.settings.whisperModel" @change="updateGeneralSettings">
+                  <el-radio-button label="tiny">Tiny</el-radio-button>
+                  <el-radio-button label="base">Base</el-radio-button>
+                  <el-radio-button label="small">Small</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+
+              <el-alert
+                title="关于Whisper"
+                type="info"
+                description="Whisper是OpenAI开发的开源语音识别模型，可以在本地运行，无需API密钥。模型大小影响识别精度和速度，Tiny最快但精度较低，Small最慢但精度最高。"
+                :closable="false"
+                show-icon
+              />
+            </el-form>
+          </div>
         </el-tab-pane>
         
         <!-- 关于 -->
@@ -385,13 +232,13 @@ function resetAllSettings() {
           <div class="about-content">
             <h2>FlowText - 智能视频字幕提取工具</h2>
             <p>版本: 1.0.0</p>
-            <p>FlowText是一款桌面应用，用于从视频中提取音频并生成字幕。支持多种语音识别引擎，包括百度智能云、腾讯云、阿里云和本地Whisper模型。</p>
+            <p>FlowText是一款桌面应用，用于从视频中提取音频并生成字幕。使用本地Whisper模型进行语音识别，完全离线处理，保护您的隐私。</p>
             
             <h3>主要功能</h3>
             <ul>
               <li>视频导入和信息展示</li>
               <li>音频提取</li>
-              <li>多引擎语音识别</li>
+              <li>Whisper本地语音识别</li>
               <li>字幕编辑和管理</li>
               <li>多格式字幕导出</li>
             </ul>

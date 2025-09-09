@@ -80,6 +80,12 @@ export interface AppSettings {
     tencent?: {
       secretId: string;
       secretKey: string;
+      // COS配置（可选，用于大文件上传）
+      cos?: {
+        bucket: string;
+        region: string;
+        domain?: string; // 自定义域名（可选）
+      };
     };
     aliyun?: {
       accessKeyId: string;

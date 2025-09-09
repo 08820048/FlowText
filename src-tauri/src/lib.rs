@@ -1,9 +1,10 @@
-mod video;
+mod cos;
 mod recognition;
+mod video;
 
-use video::*;
 use recognition::*;
 use tauri::Manager;
+use video::*;
 
 // 视频处理命令
 #[tauri::command]
@@ -18,7 +19,11 @@ async fn extract_audio(video_path: String, audio_track_id: u32) -> Result<String
 
 // 字幕处理命令
 #[tauri::command]
-async fn export_subtitles(subtitles: Vec<Subtitle>, format: String, file_name: String) -> Result<String, String> {
+async fn export_subtitles(
+    subtitles: Vec<Subtitle>,
+    format: String,
+    file_name: String,
+) -> Result<String, String> {
     video::export_subtitles(&subtitles, &format, &file_name).map_err(|e| e.to_string())
 }
 
@@ -29,8 +34,15 @@ async fn import_subtitles(file_path: String) -> Result<Vec<Subtitle>, String> {
 
 // 语音识别命令
 #[tauri::command]
-async fn start_recognition(task_id: String, audio_path: String, engine: String, language: String, api_keys: Option<serde_json::Value>) -> Result<(), String> {
-    recognition::start_recognition(task_id, &audio_path, &engine, &language, api_keys).map_err(|e| e.to_string())
+async fn start_recognition(
+    task_id: String,
+    audio_path: String,
+    engine: String,
+    language: String,
+    api_keys: Option<serde_json::Value>,
+) -> Result<(), String> {
+    recognition::start_recognition(task_id, &audio_path, &engine, &language, api_keys)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
