@@ -819,7 +819,13 @@ async fn call_faster_whisper_with_config(
         params.model_config
     );
 
-    update_task_status(task_id, "processing".to_string(), 0.3, None, None);
+    update_task_status(
+        task_id,
+        "processing".to_string(),
+        0.1,
+        None,
+        Some("正在初始化模型...".to_string()),
+    );
 
     // 构建Python脚本来调用faster-whisper
     let python_script = format!(
@@ -892,6 +898,15 @@ except Exception as e:
         }
     );
 
+    // 更新进度：开始识别
+    update_task_status(
+        task_id,
+        "processing".to_string(),
+        0.2,
+        None,
+        Some("正在进行语音识别...".to_string()),
+    );
+
     // 执行Python脚本
     let output = Command::new("python3")
         .arg("-c")
@@ -904,9 +919,29 @@ except Exception as e:
         return Err(format!("Faster-Whisper识别失败: {}", error_msg));
     }
 
+    // 更新进度：处理结果
+    update_task_status(
+        task_id,
+        "processing".to_string(),
+        0.8,
+        None,
+        Some("正在处理识别结果...".to_string()),
+    );
+
     // 解析输出
     let output_str = String::from_utf8_lossy(&output.stdout);
-    parse_srt_content(&output_str)
+    let result = parse_srt_content(&output_str);
+
+    // 更新进度：即将完成
+    update_task_status(
+        task_id,
+        "processing".to_string(),
+        0.95,
+        None,
+        Some("正在生成字幕...".to_string()),
+    );
+
+    result
 }
 
 /// 使用配置的SenseVoice进行识别

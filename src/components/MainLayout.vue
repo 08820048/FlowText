@@ -146,6 +146,13 @@ watch(() => videoStore.isVideoLoaded, (isLoaded) => {
   }
 });
 
+// 处理识别完成后的页面跳转
+function handleSwitchToSubtitleEditor() {
+  activePanel.value = 'subtitle';
+  rightPanelExpanded.value = true;
+  sidebarCollapsed.value = false;
+}
+
 // 初始化设置
 onMounted(() => {
   settingsStore.initSettings();
@@ -237,7 +244,10 @@ onUnmounted(() => {
         v-show="!sidebarCollapsed && rightPanelExpanded"
       >
         <!-- 面板内容 -->
-        <RecognitionPanel v-if="activePanel === 'recognition'" />
+        <RecognitionPanel
+          v-if="activePanel === 'recognition'"
+          @switch-to-subtitle-editor="handleSwitchToSubtitleEditor"
+        />
         <SubtitleEditor v-if="activePanel === 'subtitle'" />
         <SettingsPanel v-if="activePanel === 'settings'" />
       </div>

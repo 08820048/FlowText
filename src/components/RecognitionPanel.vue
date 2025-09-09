@@ -11,6 +11,11 @@ import { modelManager } from '../utils/modelManager';
 import { ModelApi } from '../utils/modelApi';
 import type { RecognitionEngine, ModelConfig, ModelSize, ExtendedRecognitionParams } from '../types';
 
+// 定义事件
+const emit = defineEmits<{
+  switchToSubtitleEditor: []
+}>();
+
 // 引入存储
 const videoStore = useVideoStore();
 const settingsStore = useSettingsStore();
@@ -51,6 +56,12 @@ const currentProgressTaskId = ref<string | null>(null);
 
 // 识别进度
 const recognitionProgress = ref(0);
+
+// 动态进度条相关
+const dynamicProgress = ref(0);
+const progressMessage = ref('');
+const isProgressAnimating = ref(false);
+let progressAnimationId: number | null = null;
 
 // 识别状态
 const recognitionStatus = ref<'idle' | 'extracting' | 'recognizing' | 'completed' | 'failed'>('idle');
@@ -258,6 +269,55 @@ async function initOsInfo(): Promise<void> {
   } catch (error) {
     console.error('获取操作系统信息失败:', error);
   }
+}
+
+/**
+ * 启动动态进度条动画
+ */
+function startProgressAnimation(targetProgress: number, message: string) {
+  progressMessage.value = message;
+  isProgressAnimating.value = true;
+
+  // 清除之前的动画
+  if (progressAnimationId) {
+    cancelAnimationFrame(progressAnimationId);
+  }
+
+  const startProgress = dynamicProgress.value;
+  const progressDiff = targetProgress - startProgress;
+  const duration = 1000; // 1秒动画时长
+  const startTime = Date.now();
+
+  function animate() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    // 使用缓动函数让动画更自然
+    const easeProgress = 1 - Math.pow(1 - progress, 3);
+    dynamicProgress.value = startProgress + (progressDiff * easeProgress);
+
+    if (progress < 1) {
+      progressAnimationId = requestAnimationFrame(animate);
+    } else {
+      isProgressAnimating.value = false;
+      progressAnimationId = null;
+    }
+  }
+
+  progressAnimationId = requestAnimationFrame(animate);
+}
+
+/**
+ * 停止进度条动画
+ */
+function stopProgressAnimation() {
+  if (progressAnimationId) {
+    cancelAnimationFrame(progressAnimationId);
+    progressAnimationId = null;
+  }
+  isProgressAnimating.value = false;
+  dynamicProgress.value = 0;
+  progressMessage.value = '';
 }
 
 /**
@@ -627,6 +687,9 @@ async function startRecognitionProcess() {
 
     console.log('识别任务已启动，任务ID:', task.id);
 
+    // 启动动态进度条
+    startProgressAnimation(10, '正在提取音频...');
+
     // 定时检查识别状态
     await monitorRecognitionProgress(task.id, progressTaskId);
     
@@ -676,6 +739,10 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
       const adjustedProgress = 30 + (status.progress * 70); // 30% 基础进度 + 70% 识别进度
       ProgressMonitor.updateProgress(progressTaskId, adjustedProgress, `识别进度: ${Math.round(progressPercent)}%`);
 
+      // 更新动态进度条
+      const progressMsg = status.error || `识别进度: ${Math.round(progressPercent)}%`;
+      startProgressAnimation(progressPercent, progressMsg);
+
       // 更新任务状态
       videoStore.updateRecognitionTask(taskId, {
         status: status.status as any,
@@ -688,6 +755,9 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
       if (status.status === 'completed') {
         // 识别完成
         clearInterval(checkInterval);
+
+        // 停止动态进度条
+        stopProgressAnimation();
 
         // 重置所有状态，允许开始新的识别任务
         recognitionStatus.value = 'idle';
@@ -711,6 +781,11 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
           currentProgressTaskId.value = null;
 
           ElMessage.success(`识别完成，共生成${status.subtitles.length}条字幕`);
+
+          // 自动跳转到字幕编辑页面
+          setTimeout(() => {
+            emit('switchToSubtitleEditor');
+          }, 1000); // 延迟1秒，让用户看到成功消息
         } else {
           ProgressMonitor.completeTask(progressTaskId, '识别完成，但未生成字幕');
           currentProgressTaskId.value = null;
@@ -721,6 +796,9 @@ async function monitorRecognitionProgress(taskId: string, progressTaskId: string
         recognitionStatus.value = 'failed';
         errorMessage.value = status.error || '未知错误';
         clearInterval(checkInterval);
+
+        // 停止动态进度条
+        stopProgressAnimation();
 
         // 重置加载状态和任务ID
         loading.value.recognize = false;
@@ -1071,24 +1149,40 @@ async function cancelRecognitionProcess() {
       <div v-if="recognitionStatus !== 'idle'" class="recognition-status">
         <div class="status-header">
           <span class="status-label">
-            {{
+            {{ progressMessage || (
               recognitionStatus === 'extracting' ? '正在提取音频...' :
               recognitionStatus === 'recognizing' ? '正在识别...' :
               recognitionStatus === 'completed' ? '识别完成' :
               '识别失败'
-            }}
+            ) }}
           </span>
         </div>
-        
+
+        <!-- 动态进度条 -->
         <el-progress
-          :percentage="recognitionProgress"
+          :percentage="Math.round(dynamicProgress)"
           :status="
             recognitionStatus === 'completed' ? 'success' :
             recognitionStatus === 'failed' ? 'exception' :
             ''
           "
-        />
-        
+          :stroke-width="8"
+          :show-text="true"
+          class="dynamic-progress"
+        >
+          <template #default="{ percentage }">
+            <span class="progress-text">{{ percentage }}%</span>
+          </template>
+        </el-progress>
+
+        <!-- 进度条下方的详细信息 -->
+        <div v-if="isProgressAnimating" class="progress-details">
+          <div class="progress-animation">
+            <el-icon class="rotating"><Setting /></el-icon>
+            <span>处理中...</span>
+          </div>
+        </div>
+
         <div v-if="recognitionStatus === 'failed'" class="error-message">
           {{ errorMessage }}
         </div>
@@ -1316,5 +1410,83 @@ async function cancelRecognitionProcess() {
 
 .recommend-btn {
   margin-left: 8px;
+}
+
+/* 识别状态和动态进度条样式 */
+.recognition-status {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--el-bg-color-page);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-light);
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.status-label {
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.dynamic-progress {
+  margin-bottom: 12px;
+}
+
+.dynamic-progress :deep(.el-progress-bar__outer) {
+  background-color: var(--el-color-info-light-8);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.dynamic-progress :deep(.el-progress-bar__inner) {
+  background: linear-gradient(90deg, #67C23A, #85CE61);
+  border-radius: 10px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-text {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.progress-details {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.progress-animation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--el-color-primary);
+  font-size: 14px;
+}
+
+.rotating {
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-message {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--el-color-error-light-9);
+  color: var(--el-color-error);
+  border-radius: 4px;
+  font-size: 14px;
 }
 </style>
